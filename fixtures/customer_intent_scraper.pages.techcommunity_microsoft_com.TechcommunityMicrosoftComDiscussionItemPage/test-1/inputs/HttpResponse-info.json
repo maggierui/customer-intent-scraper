@@ -1,0 +1,92 @@
+{
+  "_encoding": null,
+  "headers": [
+    [
+      "Content-Length",
+      "70341"
+    ],
+    [
+      "Content-Type",
+      "text/html; charset=utf-8"
+    ],
+    [
+      "Server",
+      "Apache"
+    ],
+    [
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains"
+    ],
+    [
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains"
+    ],
+    [
+      "Referrer-Policy",
+      "strict-origin-when-cross-origin"
+    ],
+    [
+      "X-Content-Type-Options",
+      "nosniff"
+    ],
+    [
+      "X-Dns-Prefetch-Control",
+      "off"
+    ],
+    [
+      "X-Download-Options",
+      "noopen"
+    ],
+    [
+      "X-Frame-Options",
+      "SAMEORIGIN"
+    ],
+    [
+      "X-Permitted-Cross-Domain-Policies",
+      "none"
+    ],
+    [
+      "X-Xss-Protection",
+      "0"
+    ],
+    [
+      "Etag",
+      "\"rzjnrh1giz9ipc-gzip\""
+    ],
+    [
+      "Expires",
+      "Wed, 10 Dec 2025 15:53:58 GMT"
+    ],
+    [
+      "Cache-Control",
+      "max-age=0, no-cache, no-store"
+    ],
+    [
+      "Pragma",
+      "no-cache"
+    ],
+    [
+      "Date",
+      "Wed, 10 Dec 2025 15:53:58 GMT"
+    ],
+    [
+      "Vary",
+      "Accept-Encoding"
+    ],
+    [
+      "Set-Cookie",
+      "LiSESSIONID=ECE5D904C4D35A87688367B7A583963A; Path=/; HttpOnly;SameSite=None;SameSite=None"
+    ],
+    [
+      "Set-Cookie",
+      "LithiumVisitor=~2Jb0FYf2sY39VInzj~3S2L4YdJ0XhG1i-51pNNWhfl6TRfVG9a-j78VZMk85KNsAaPWAz5ehO6e5DYp6ETym8iO2sO_Scb8Ty42E1V3Q..; Path=/; HttpOnly; Max-Age=31536000; Secure; SameSite=None"
+    ],
+    [
+      "Set-Cookie",
+      "csrf-aurora=0c9cb210a7e22978c295eca52f3d4794e384133b075f00a839b270cfcd745a9bc1c45f2755d1663c1c06ed88281b2d7dd301fff586ce93c7fd406394e6c6aa96%7C4178d3c7ab7f2081d22a812da5cfdb547d1c9286c16ee171c2d9cd51ce8d9885; Path=/; HttpOnly; Secure; SameSite=Strict"
+    ]
+  ],
+  "status": 200,
+  "type": "HttpResponse",
+  "url": "https://techcommunity.microsoft.com/category/microsoft365copilot/discussions/microsoft365copilot"
+}
