@@ -8,3 +8,7 @@ debug_spider.py
 *.egg-info/
 dist/
 build/
+
+items_cleaned.json
+intent_analysis.json
+.env
