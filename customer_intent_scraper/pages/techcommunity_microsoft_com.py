@@ -3,19 +3,48 @@ from typing import Optional, List
 import html
 import re
 import json
+import logging
+import attrs
 
 from customer_intent_scraper.items import DiscussionItem, ReplyItem
-from web_poet import Returns, WebPage, field, handle_urls
+from web_poet import Returns, WebPage, field, handle_urls, HttpResponse
+from web_poet.serialization import register_serialization
+
+logger = logging.getLogger(__name__)
+
+
+@attrs.define
+class TechcommunityReplies:
+    data: dict
+
+
+def _serialize_replies(o: TechcommunityReplies) -> dict:
+    return {"json": json.dumps(o.data, sort_keys=True, indent=4).encode()}
+
+
+def _deserialize_replies(cls, data: dict) -> TechcommunityReplies:
+    return cls(data=json.loads(data["json"]))
+
+
+register_serialization(_serialize_replies, _deserialize_replies)
 
 
 @handle_urls("techcommunity.microsoft.com")
 class TechcommunityMicrosoftComDiscussionItemPage(WebPage, Returns[DiscussionItem]):
+    def __init__(self, response: HttpResponse, replies: Optional[TechcommunityReplies] = None):
+        super().__init__(response)
+        self.replies_input = replies
+
     @property
     def _next_data(self):
         if not hasattr(self, '__next_data'):
             data = self.xpath('//script[@id="__NEXT_DATA__"]/text()').get()
             if data:
-                self.__next_data = json.loads(data)
+                try:
+                    self.__next_data = json.loads(data)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse __NEXT_DATA__: {e}")
+                    self.__next_data = {}
             else:
                 self.__next_data = {}
         return self.__next_data
@@ -115,7 +144,8 @@ class TechcommunityMicrosoftComDiscussionItemPage(WebPage, Returns[DiscussionIte
     def discussion_url(self) -> Optional[str]:
         current_url = str(self.response.url)
         # If current URL already looks like a discussion permalink, use it.
-        if re.search(r"/discussions/[^/]+/\d+/?$", current_url):
+        # Matches /discussions/category/slug/id or /discussions/category/id
+        if re.search(r"/discussions/[^/]+/(?:[^/]+/)?\d+/?$", current_url):
             return current_url
 
         # Scope to the first message item (the main post) and get the MessageLink href
@@ -305,6 +335,54 @@ class TechcommunityMicrosoftComDiscussionItemPage(WebPage, Returns[DiscussionIte
     @field
     def replies(self) -> List[ReplyItem]:
         replies = []
+
+        # 1. Try to use JSON input if available
+        if self.replies_input and self.replies_input.data:
+            data = self.replies_input.data
+            # Navigate to data.message.replies.edges
+            message = data.get("data", {}).get("message", {})
+            edges = message.get("replies", {}).get("edges", [])
+            
+            for edge in edges:
+                node = edge.get("node", {})
+                if not node:
+                    continue
+                    
+                reply = ReplyItem()
+                
+                # Author
+                author_node = node.get("author", {})
+                reply['author'] = author_node.get("login")
+                
+                # Content
+                body = node.get("body", "")
+                # Remove HTML tags for content
+                clean_body = re.sub(r'<[^>]+>', ' ', body)
+                clean_body = html.unescape(re.sub(r'\s+', ' ', clean_body).strip())
+                reply['content'] = clean_body
+                
+                # Publish Date
+                post_time = node.get("postTime")
+                if post_time:
+                    # Format: 2025-12-09T14:02:22.388-08:00
+                    # We need to parse this.
+                    try:
+                        # Remove milliseconds and timezone for simple parsing or use dateutil
+                        # Using the existing _parse_date might not work directly as format differs
+                        # Let's try to parse ISO format
+                        dt = datetime.fromisoformat(post_time)
+                        reply['publish_date'] = dt.isoformat()
+                    except Exception:
+                        reply['publish_date'] = post_time
+                else:
+                    reply['publish_date'] = None
+                
+                # Thumbs up
+                reply['thumbs_up_count'] = node.get("kudosSumWeight", 0)
+                
+                replies.append(reply)
+            
+            return replies
 
         # Detail page: check for multiple StandardMessageView articles
         articles = self.css('article[data-testid="StandardMessageView"]')

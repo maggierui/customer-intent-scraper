@@ -1,5 +1,7 @@
 import scrapy
+from scrapy_playwright.page import PageMethod
 from customer_intent_scraper.pages.techcommunity_microsoft_com import TechcommunityMicrosoftComDiscussionItemPage
+from customer_intent_scraper.handlers import handle_graphql_response
 
 class TechcommunitySpider(scrapy.Spider):
     name = "techcommunity"
@@ -13,7 +15,23 @@ class TechcommunitySpider(scrapy.Spider):
         
         for link in links:
             if link:
-                yield response.follow(link, self.parse_discussion)
+                # Use Playwright for discussion pages to capture GraphQL replies
+                yield response.follow(
+                    link, 
+                    self.parse_discussion,
+                    meta={
+                        "playwright": True,
+                        "playwright_page_event_handlers": {
+                            "response": handle_graphql_response,
+                        },
+                        "playwright_page_methods": [
+                            # Scroll to the bottom to trigger lazy loading of replies
+                            PageMethod("evaluate", "window.scrollTo(0, document.body.scrollHeight)"),
+                            # Wait for network requests to complete (adjust time as needed)
+                            PageMethod("wait_for_timeout", 5000),
+                        ],
+                    }
+                )
 
         # Pagination: Look for a "Next" button or link. 
         # Common pattern in Lithium/Khoros communities (which this looks like) is a link with rel="next"

@@ -1,0 +1,332 @@
+{
+    "data": {
+        "message": {
+            "id": "message:4389520",
+            "entityType": "FORUM_TOPIC",
+            "eventPath": "category:Microsoft365Copilot/category:products-services/category:communities/community:gxcuf89792board:Microsoft365Copilot/message:4389520",
+            "revisionNum": 1,
+            "__typename": "ForumTopicMessage",
+            "repliesCount": 7,
+            "replies": {
+                "edges": [
+                    {
+                        "cursor": "MjUuOXwyLjF8aXwxMHwxMzI6MHxpbnQsNDQ3NjU5Myw0NDc2NTkz",
+                        "node": {
+                            "author": {
+                                "id": "user:27835",
+                                "uid": 27835,
+                                "login": "Karuana_Gatimu_MSFT",
+                                "biography": null,
+                                "registrationData": {
+                                    "status": null,
+                                    "registrationTime": "2016-11-02T11:28:56.974-07:00",
+                                    "__typename": "RegistrationData"
+                                },
+                                "deleted": false,
+                                "__typename": "User",
+                                "email": "",
+                                "avatar": {
+                                    "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/images/dS0yNzgzNS1lbDc0R2I?image-coordinates=0%2C0%2C523%2C523",
+                                    "__typename": "UserAvatar"
+                                },
+                                "rank": {
+                                    "id": "rank:2",
+                                    "position": 1,
+                                    "name": "Community Manager",
+                                    "color": "333333",
+                                    "icon": {
+                                        "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/images/cmstMi1MV1dRR1U",
+                                        "height": 512,
+                                        "width": 512,
+                                        "mimeType": "image/png",
+                                        "__typename": "AssociatedImage"
+                                    },
+                                    "rankStyle": "OUTLINE",
+                                    "__typename": "Rank"
+                                },
+                                "entityType": "USER",
+                                "eventPath": "community:gxcuf89792/user:27835"
+                            },
+                            "__typename": "ForumReplyMessage",
+                            "id": "message:4476593",
+                            "entityType": "FORUM_REPLY",
+                            "eventPath": "category:Microsoft365Copilot/category:products-services/category:communities/community:gxcuf89792board:Microsoft365Copilot/message:4389520/message:4476593",
+                            "revisionNum": 1,
+                            "uid": 4476593,
+                            "depth": 1,
+                            "hasGivenKudo": false,
+                            "subscribed": false,
+                            "board": {
+                                "id": "board:Microsoft365Copilot",
+                                "entityType": "FORUM",
+                                "displayId": "Microsoft365Copilot",
+                                "nodeType": "board",
+                                "depth": 4,
+                                "conversationStyle": "FORUM",
+                                "__typename": "Forum",
+                                "title": "Microsoft 365 Copilot",
+                                "shortTitle": "Microsoft 365 Copilot",
+                                "parent": {
+                                    "id": "category:Microsoft365Copilot",
+                                    "entityType": "CATEGORY",
+                                    "displayId": "Microsoft365Copilot",
+                                    "nodeType": "category",
+                                    "depth": 3,
+                                    "__typename": "Category",
+                                    "title": "Microsoft 365 Copilot",
+                                    "shortTitle": "Microsoft 365 Copilot"
+                                },
+                                "userContext": {
+                                    "canAddAttachments": false,
+                                    "canUpdateNode": false,
+                                    "canPostMessages": false,
+                                    "isSubscribed": false,
+                                    "__typename": "NodeUserContext"
+                                },
+                                "eventPath": "category:Microsoft365Copilot/category:products-services/category:communities/community:gxcuf89792board:Microsoft365Copilot/"
+                            },
+                            "parent": {
+                                "uid": 4389520,
+                                "id": "message:4389520",
+                                "entityType": "FORUM_TOPIC",
+                                "eventPath": "category:Microsoft365Copilot/category:products-services/category:communities/community:gxcuf89792board:Microsoft365Copilot/message:4389520",
+                                "revisionNum": 1,
+                                "__typename": "ForumTopicMessage",
+                                "author": {
+                                    "id": "user:2941029",
+                                    "entityType": "USER",
+                                    "eventPath": "community:gxcuf89792/user:2941029",
+                                    "deleted": false,
+                                    "uid": 2941029,
+                                    "login": "mazzer",
+                                    "biography": null,
+                                    "registrationData": {
+                                        "status": null,
+                                        "registrationTime": "2025-03-05T09:35:40.343-08:00",
+                                        "__typename": "RegistrationData"
+                                    },
+                                    "__typename": "User"
+                                },
+                                "readOnly": false,
+                                "repliesCount": 7
+                            },
+                            "conversation": {
+                                "id": "conversation:4389520",
+                                "solved": false,
+                                "topic": {
+                                    "uid": 4389520,
+                                    "subject": "How can I permanently remove the irritating copilot icon from my word document",
+                                    "id": "message:4389520",
+                                    "entityType": "FORUM_TOPIC",
+                                    "eventPath": "category:Microsoft365Copilot/category:products-services/category:communities/community:gxcuf89792board:Microsoft365Copilot/message:4389520",
+                                    "revisionNum": 1,
+                                    "__typename": "ForumTopicMessage",
+                                    "repliesCount": 7
+                                },
+                                "lastPostingActivityTime": "2025-12-09T14:02:22.388-08:00",
+                                "lastPostTime": "2025-12-09T14:02:22.388-08:00",
+                                "unreadReplyCount": 7,
+                                "isSubscribed": false,
+                                "__typename": "Conversation"
+                            },
+                            "subject": "Re: How can I permanently remove the irritating copilot icon from my word document",
+                            "moderationData": {
+                                "id": "moderation_data:4476593",
+                                "status": "APPROVED",
+                                "rejectReason": null,
+                                "__typename": "ModerationData",
+                                "isReportedAbuse": false,
+                                "rejectUser": null,
+                                "rejectTime": null,
+                                "rejectActorType": null
+                            },
+                            "body": "<P>I think you are looking for this support article: <A class=\"lia-external-url\" href=\"https://support.microsoft.com/en-us/office/turn-off-copilot-in-microsoft-365-apps-bc7e530b-152d-4123-8e78-edc06f8b85f1\" target=\"_blank\" rel=\"noopener noreferrer\">https://support.microsoft.com/en-us/office/turn-off-copilot-in-microsoft-365-apps-bc7e530b-152d-4123-8e78-edc06f8b85f1</A></P>\n<P>Note the instructions below only work for the client apps. You can not disable the icon in the web versions.&nbsp; Here are the instructions:<BR /><BR />Clear the \"Enable Copilot\" checkbox on Mac devices</P>\n<OL>\n<LI>In your app (for example, Word), select the app menu, and then go to&nbsp;<STRONG>Preferences</STRONG>&nbsp;&gt;&nbsp;<STRONG>Authoring and Proofing Tools</STRONG>&nbsp;&gt;&nbsp;<STRONG>Copilot</STRONG>.</LI>\n<LI>Clear the&nbsp;<STRONG>Enable Copilot</STRONG>&nbsp;checkbox.</LI>\n<LI>Close and restart the app.</LI>\n</OL>\n<P>Also you should note that if you are using an external mouse you can right click on a Mac.&nbsp; You just can't from the trackpad easily.&nbsp; Hope this helps</P>",
+                            "bodyLength": "203",
+                            "kudosSumWeight": 0,
+                            "repliesCount": 0,
+                            "postTime": "2025-12-09T14:02:22.388-08:00",
+                            "lastPublishTime": "2025-12-09T14:02:22.388-08:00",
+                            "metrics": {
+                                "views": 409,
+                                "__typename": "MessageMetrics"
+                            },
+                            "visibilityScope": "PUBLIC",
+                            "placeholder": false,
+                            "showMoveIndicator": false,
+                            "originalMessageForPlaceholder": null,
+                            "isEscalated": null,
+                            "solution": false,
+                            "replies": {
+                                "pageInfo": {
+                                    "hasNextPage": false,
+                                    "endCursor": null,
+                                    "hasPreviousPage": false,
+                                    "startCursor": null,
+                                    "__typename": "PageInfo"
+                                },
+                                "edges": [],
+                                "__typename": "MessageConnection"
+                            }
+                        },
+                        "__typename": "MessageEdge"
+                    },
+                    {
+                        "cursor": "MjUuOXwyLjF8aXwxMHwxMzI6MHxpbnQsNDQ3NjU5Myw0Mzk0NDIz",
+                        "node": {
+                            "author": {
+                                "id": "user:2941029",
+                                "uid": 2941029,
+                                "login": "mazzer",
+                                "biography": null,
+                                "registrationData": {
+                                    "status": null,
+                                    "registrationTime": "2025-03-05T09:35:40.343-08:00",
+                                    "__typename": "RegistrationData"
+                                },
+                                "deleted": false,
+                                "__typename": "User",
+                                "email": "",
+                                "avatar": {
+                                    "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/m_assets/avatars/default/avatar-6.svg?time=0",
+                                    "__typename": "UserAvatar"
+                                },
+                                "rank": {
+                                    "id": "rank:36",
+                                    "position": 18,
+                                    "name": "Brass Contributor",
+                                    "color": "333333",
+                                    "icon": null,
+                                    "rankStyle": "TEXT",
+                                    "__typename": "Rank"
+                                },
+                                "entityType": "USER",
+                                "eventPath": "community:gxcuf89792/user:2941029"
+                            },
+                            "__typename": "ForumReplyMessage",
+                            "id": "message:4394423",
+                            "entityType": "FORUM_REPLY",
+                            "eventPath": "category:Microsoft365Copilot/category:products-services/category:communities/community:gxcuf89792board:Microsoft365Copilot/message:4389520/message:4394423",
+                            "revisionNum": 1,
+                            "uid": 4394423,
+                            "depth": 1,
+                            "hasGivenKudo": false,
+                            "subscribed": false,
+                            "board": {
+                                "id": "board:Microsoft365Copilot",
+                                "entityType": "FORUM",
+                                "displayId": "Microsoft365Copilot",
+                                "nodeType": "board",
+                                "depth": 4,
+                                "conversationStyle": "FORUM",
+                                "__typename": "Forum",
+                                "title": "Microsoft 365 Copilot",
+                                "shortTitle": "Microsoft 365 Copilot",
+                                "parent": {
+                                    "id": "category:Microsoft365Copilot",
+                                    "entityType": "CATEGORY",
+                                    "displayId": "Microsoft365Copilot",
+                                    "nodeType": "category",
+                                    "depth": 3,
+                                    "__typename": "Category",
+                                    "title": "Microsoft 365 Copilot",
+                                    "shortTitle": "Microsoft 365 Copilot"
+                                },
+                                "userContext": {
+                                    "canAddAttachments": false,
+                                    "canUpdateNode": false,
+                                    "canPostMessages": false,
+                                    "isSubscribed": false,
+                                    "__typename": "NodeUserContext"
+                                },
+                                "eventPath": "category:Microsoft365Copilot/category:products-services/category:communities/community:gxcuf89792board:Microsoft365Copilot/"
+                            },
+                            "parent": {
+                                "uid": 4389520,
+                                "id": "message:4389520",
+                                "entityType": "FORUM_TOPIC",
+                                "eventPath": "category:Microsoft365Copilot/category:products-services/category:communities/community:gxcuf89792board:Microsoft365Copilot/message:4389520",
+                                "revisionNum": 1,
+                                "__typename": "ForumTopicMessage",
+                                "author": {
+                                    "id": "user:2941029",
+                                    "entityType": "USER",
+                                    "eventPath": "community:gxcuf89792/user:2941029",
+                                    "deleted": false,
+                                    "uid": 2941029,
+                                    "login": "mazzer",
+                                    "biography": null,
+                                    "registrationData": {
+                                        "status": null,
+                                        "registrationTime": "2025-03-05T09:35:40.343-08:00",
+                                        "__typename": "RegistrationData"
+                                    },
+                                    "__typename": "User"
+                                },
+                                "readOnly": false,
+                                "repliesCount": 7
+                            },
+                            "conversation": {
+                                "id": "conversation:4389520",
+                                "solved": false,
+                                "topic": {
+                                    "uid": 4389520,
+                                    "subject": "How can I permanently remove the irritating copilot icon from my word document",
+                                    "id": "message:4389520",
+                                    "entityType": "FORUM_TOPIC",
+                                    "eventPath": "category:Microsoft365Copilot/category:products-services/category:communities/community:gxcuf89792board:Microsoft365Copilot/message:4389520",
+                                    "revisionNum": 1,
+                                    "__typename": "ForumTopicMessage",
+                                    "repliesCount": 7
+                                },
+                                "lastPostingActivityTime": "2025-12-09T14:02:22.388-08:00",
+                                "lastPostTime": "2025-12-09T14:02:22.388-08:00",
+                                "unreadReplyCount": 7,
+                                "isSubscribed": false,
+                                "__typename": "Conversation"
+                            },
+                            "subject": "Re: How can I permanently remove the irritating copilot icon from my word document",
+                            "moderationData": {
+                                "id": "moderation_data:4394423",
+                                "status": "APPROVED",
+                                "rejectReason": null,
+                                "__typename": "ModerationData",
+                                "isReportedAbuse": false,
+                                "rejectUser": null,
+                                "rejectTime": null,
+                                "rejectActorType": "member"
+                            },
+                            "body": "<P>Amelia,</P><P>Hi<BR />How would I remove the licence? Is it some file I just delete and would this affect how Mac Office works on my computer?</P><P>Thanks, Maz&nbsp;</P>",
+                            "bodyLength": "154",
+                            "kudosSumWeight": 0,
+                            "repliesCount": 0,
+                            "postTime": "2025-03-18T03:14:36.134-07:00",
+                            "lastPublishTime": "2025-03-18T03:14:36.134-07:00",
+                            "metrics": {
+                                "views": 5143,
+                                "__typename": "MessageMetrics"
+                            },
+                            "visibilityScope": "PUBLIC",
+                            "placeholder": false,
+                            "showMoveIndicator": false,
+                            "originalMessageForPlaceholder": null,
+                            "isEscalated": null,
+                            "solution": false,
+                            "replies": {
+                                "pageInfo": {
+                                    "hasNextPage": false,
+                                    "endCursor": null,
+                                    "hasPreviousPage": false,
+                                    "startCursor": null,
+                                    "__typename": "PageInfo"
+                                },
+                                "edges": [],
+                                "__typename": "MessageConnection"
+                            }
+                        },
+                        "__typename": "MessageEdge"
+                    }
+                ]
+            }
+        }
+    }
+}

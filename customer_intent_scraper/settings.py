@@ -14,7 +14,19 @@ NEWSPIDER_MODULE = "customer_intent_scraper.spiders"
 
 ADDONS = {"scrapy_poet.Addon": 300}
 
-SCRAPY_POET_DISCOVER = ["customer_intent_scraper.pages"]
+SCRAPY_POET_DISCOVER = ["customer_intent_scraper.pages", "customer_intent_scraper.providers"]
+
+DOWNLOAD_HANDLERS = {
+    "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+    "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+}
+
+TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
+
+PLAYWRIGHT_LAUNCH_OPTIONS = {
+    "headless": True,
+    "timeout": 20 * 1000,  # 20 seconds
+}
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
