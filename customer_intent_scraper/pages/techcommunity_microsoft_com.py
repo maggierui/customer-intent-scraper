@@ -50,6 +50,9 @@ class TechcommunityMicrosoftComDiscussionItemPage(WebPage, Returns[DiscussionIte
                     self.__next_data = json.loads(data)
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse __NEXT_DATA__: {e}")
+                    logger.error(f"Data length: {len(data)}")
+                    logger.error(f"Data start: {data[:100]}")
+                    logger.error(f"Data end: {data[-100:]}")
                     self.__next_data = {}
             else:
                 self.__next_data = {}
@@ -81,6 +84,17 @@ class TechcommunityMicrosoftComDiscussionItemPage(WebPage, Returns[DiscussionIte
                              self.__main_message_data = value
                              break
         return self.__main_message_data
+
+    @field
+    def message_id(self) -> Optional[str]:
+        if self._main_message_data:
+            return self._main_message_data.get("id")
+        
+        # Fallback: try to extract from URL
+        match = re.search(r'/(\d+)$', str(self.response.url))
+        if match:
+            return f"message:{match.group(1)}"
+        return None
 
     @field
     def author(self) -> Optional[str]:
@@ -442,6 +456,9 @@ class TechcommunityMicrosoftComDiscussionItemPage(WebPage, Returns[DiscussionIte
     def _parse_single_reply_node(self, node: dict) -> Optional[ReplyItem]:
         reply = ReplyItem()
         
+        # ID
+        reply['id'] = node.get("id")
+
         # Author
         author_node = node.get("author", {})
         if "__ref" in author_node:
@@ -462,6 +479,8 @@ class TechcommunityMicrosoftComDiscussionItemPage(WebPage, Returns[DiscussionIte
         if post_time:
             try:
                 dt = datetime.fromisoformat(post_time)
+                # Normalize to remove microseconds for consistent deduplication
+                dt = dt.replace(microsecond=0)
                 reply['publish_date'] = dt.isoformat()
             except Exception:
                 reply['publish_date'] = post_time
