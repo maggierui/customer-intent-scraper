@@ -40,6 +40,7 @@ class TechcommunitySpider(scrapy.Spider):
         self.previous_links = set()
         self.api_headers = None
         self.api_cookies = None
+        self.board_id = None
         
         # Load previously scraped links to avoid re-crawling
         if os.path.exists("all_discussions.jsonl"):
@@ -57,10 +58,12 @@ class TechcommunitySpider(scrapy.Spider):
                 self.logger.warning(f"Could not load previous links: {e}")
 
     def capture_api_request(self, request):
+        # print(f"DEBUG: Request seen: {request.url}")
         if "graphql" in request.url and request.method == "POST":
             self.logger.info(f"Capturing headers from: {request.url}")
             self.api_headers = request.headers
             self.logger.info("Captured API headers via event handler.")
+            print("DEBUG: Captured API headers!")
 
     def start_requests(self):
         for url in self.start_urls:
@@ -92,7 +95,7 @@ class TechcommunitySpider(scrapy.Spider):
                 "removeProcessingText": True, "useUnreadCount": False, 
                 "first": 50,
                 "constraints": {
-                    "boardId": {"eq": "board:Microsoft365Copilot"},
+                    "boardId": {"eq": getattr(self, 'board_id', "board:Microsoft365Copilot")},
                     "depth": {"eq": 0},
                     "conversationStyle": {"eq": "FORUM"}
                 },
@@ -114,8 +117,38 @@ class TechcommunitySpider(scrapy.Spider):
         # if page:
         #     await page.close()
 
+        # Extract Board ID from the page content
+        if not self.board_id:
+            # Strategy 1: Look for MixedCase ID in CachedAsset keys (e.g. ForumBoardPage:board:CopilotforSmallandMediumBusiness)
+            # This is more reliable for case-sensitive APIs
+            mixed_case_matches = re.findall(r'ForumBoardPage:board:([a-zA-Z0-9]+)', response.text)
+            if mixed_case_matches:
+                self.board_id = mixed_case_matches[0]
+                self.logger.info(f"Extracted MixedCase Board ID: {self.board_id}")
+
+            # Strategy 2: Fallback to "boardId" property (usually lowercase, might fail API)
+            if not self.board_id:
+                # Try to find boardId in the page
+                matches = re.findall(r'"boardId"\s*:\s*"([^"]+)"', response.text)
+                if matches:
+                    # Filter out common non-board IDs if necessary
+                    for m in matches:
+                        if "blog" not in m.lower() and "idea" not in m.lower():
+                            self.board_id = m
+                            break
+                
+            if self.board_id:
+                if not self.board_id.startswith("board:"):
+                    self.board_id = f"board:{self.board_id}"
+                self.logger.info(f"Extracted Board ID: {self.board_id}")
+            
+            if not self.board_id:
+                self.logger.warning("Could not extract Board ID. Using default.")
+                self.board_id = "board:Microsoft365Copilot"
+
         if not self.api_headers:
             self.logger.error("Failed to capture API headers via event handler.")
+            print("DEBUG: Failed to capture API headers.")
             return
 
         # Extract cookies from captured headers

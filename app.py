@@ -43,22 +43,6 @@ df = load_data()
 if df.empty:
     st.warning("No data found. Please run the scraper first (or the analysis script).")
 else:
-    # Metrics
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Discussions", len(df))
-    col2.metric("Unique Authors", df["author"].nunique() if "author" in df.columns else 0)
-    
-    if "publish_date" in df.columns:
-        latest_date = df["publish_date"].max()
-        if pd.notnull(latest_date):
-            col3.metric("Latest Post", latest_date.strftime("%Y-%m-%d"))
-
-    # Analysis Metrics (if available)
-    has_analysis = "sentiment" in df.columns
-    if has_analysis:
-        neg_sentiment = len(df[df["sentiment"] == "Negative"])
-        col4.metric("Negative Sentiment", f"{neg_sentiment} ({neg_sentiment/len(df):.1%})")
-
     # Filters
     st.sidebar.header("Filters")
     
@@ -101,6 +85,24 @@ else:
         selected_product = st.sidebar.selectbox("Product Area", products)
         if selected_product != "All":
             filtered_df = filtered_df[filtered_df["product_area"] == selected_product]
+
+    # Metrics
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Discussions", len(filtered_df))
+    col2.metric("Unique Authors", filtered_df["author"].nunique() if "author" in filtered_df.columns else 0)
+    
+    if "publish_date" in filtered_df.columns:
+        latest_date = filtered_df["publish_date"].max()
+        if pd.notnull(latest_date):
+            col3.metric("Latest Post", latest_date.strftime("%Y-%m-%d"))
+
+    # Analysis Metrics (if available)
+    has_analysis = "sentiment" in filtered_df.columns
+    if has_analysis:
+        neg_sentiment = len(filtered_df[filtered_df["sentiment"] == "Negative"])
+        total_count = len(filtered_df)
+        percentage = (neg_sentiment / total_count) if total_count > 0 else 0
+        col4.metric("Negative Sentiment", f"{neg_sentiment} ({percentage:.1%})")
 
     # Visualizations
     if not filtered_df.empty:

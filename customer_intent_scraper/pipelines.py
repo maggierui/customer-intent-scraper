@@ -70,7 +70,7 @@ class SQLitePipeline:
     def process_item(self, item, spider):
         # Determine platform and sub_source
         platform = "Tech Community" 
-        sub_source = "Microsoft 365 Copilot" # Default
+        sub_source = "microsoft365copilot" # Default
         
         # Extract sub_source from URL if possible
         if "techcommunity.microsoft.com" in item.get("discussion_url", ""):
@@ -86,6 +86,12 @@ class SQLitePipeline:
             elif "category" in parts:
                 try:
                     idx = parts.index("category")
+                    slug = parts[idx+1]
+                except:
+                    pass
+            elif "discussions" in parts:
+                try:
+                    idx = parts.index("discussions")
                     slug = parts[idx+1]
                 except:
                     pass
