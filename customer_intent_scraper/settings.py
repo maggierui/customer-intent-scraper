@@ -1,3 +1,9 @@
+import sys
+import asyncio
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 # Scrapy settings for customer_intent_scraper project
 #
 # For simplicity, this file contains only settings considered important or
@@ -25,8 +31,11 @@ TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 
 PLAYWRIGHT_LAUNCH_OPTIONS = {
     "headless": True,
-    "timeout": 20 * 1000,  # 20 seconds
+    "timeout": 60 * 1000,  # 60 seconds
 }
+
+# Increase default navigation timeout to 60 seconds
+PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT = 60 * 1000
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent

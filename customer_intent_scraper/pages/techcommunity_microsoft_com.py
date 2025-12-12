@@ -39,6 +39,12 @@ class TechcommunityMicrosoftComDiscussionItemPage(WebPage, Returns[DiscussionIte
     def _next_data(self):
         if not hasattr(self, '__next_data'):
             data = self.xpath('//script[@id="__NEXT_DATA__"]/text()').get()
+            if not data:
+                # Fallback to regex if xpath fails (e.g. due to attributes or parsing issues)
+                match = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', self.response.text, re.DOTALL)
+                if match:
+                    data = match.group(1)
+            
             if data:
                 try:
                     self.__next_data = json.loads(data)
@@ -335,54 +341,44 @@ class TechcommunityMicrosoftComDiscussionItemPage(WebPage, Returns[DiscussionIte
     @field
     def replies(self) -> List[ReplyItem]:
         replies = []
-
+        
+        # Debug print
+        print(f"DEBUG: _main_message_data exists: {bool(self._main_message_data)}")
+        
         # 1. Try to use JSON input if available
         if self.replies_input and self.replies_input.data:
             data = self.replies_input.data
             # Navigate to data.message.replies.edges
             message = data.get("data", {}).get("message", {})
             edges = message.get("replies", {}).get("edges", [])
+            return self._parse_replies_from_edges(edges)
+
+        # 2. Try to use __NEXT_DATA__ (Apollo State) if available
+        # We scan the Apollo State for any ForumReplyMessage keys.
+        # This is necessary because the 'replies' field might be missing from the main message object
+        # or the 'edges' list might be incomplete/paginated.
+        if self._next_data:
+            apollo_state = self._next_data.get('props', {}).get('pageProps', {}).get('apolloState', {})
+            all_reply_keys = [k for k in apollo_state.keys() if k.startswith('ForumReplyMessage:message:')]
             
-            for edge in edges:
-                node = edge.get("node", {})
-                if not node:
-                    continue
-                    
-                reply = ReplyItem()
-                
-                # Author
-                author_node = node.get("author", {})
-                reply['author'] = author_node.get("login")
-                
-                # Content
-                body = node.get("body", "")
-                # Remove HTML tags for content
-                clean_body = re.sub(r'<[^>]+>', ' ', body)
-                clean_body = html.unescape(re.sub(r'\s+', ' ', clean_body).strip())
-                reply['content'] = clean_body
-                
-                # Publish Date
-                post_time = node.get("postTime")
-                if post_time:
-                    # Format: 2025-12-09T14:02:22.388-08:00
-                    # We need to parse this.
-                    try:
-                        # Remove milliseconds and timezone for simple parsing or use dateutil
-                        # Using the existing _parse_date might not work directly as format differs
-                        # Let's try to parse ISO format
-                        dt = datetime.fromisoformat(post_time)
-                        reply['publish_date'] = dt.isoformat()
-                    except Exception:
-                        reply['publish_date'] = post_time
-                else:
-                    reply['publish_date'] = None
-                
-                # Thumbs up
-                reply['thumbs_up_count'] = node.get("kudosSumWeight", 0)
-                
-                replies.append(reply)
+            additional_replies = []
+            for key in all_reply_keys:
+                node = apollo_state[key]
+                reply = self._parse_single_reply_node(node)
+                if reply:
+                    additional_replies.append(reply)
             
-            return replies
+            if additional_replies:
+                # Deduplicate based on content and author and date
+                unique_replies = {}
+                for r in additional_replies:
+                    # Create a unique key
+                    uid = f"{r.get('author')}_{r.get('publish_date')}_{r.get('content')[:20]}"
+                    unique_replies[uid] = r
+                
+                return list(unique_replies.values())
+
+        # Detail page: check for multiple StandardMessageView articles
 
         # Detail page: check for multiple StandardMessageView articles
         articles = self.css('article[data-testid="StandardMessageView"]')
@@ -426,51 +422,56 @@ class TechcommunityMicrosoftComDiscussionItemPage(WebPage, Returns[DiscussionIte
             
             return replies
 
-        # Select all list items except the first one (which is the main post)
-        reply_items = self.css(
-            'article[data-testid="PanelItemList.MessageListForNodeByRecentActivityWidget"] '
-            'section[role="tabpanel"] ul li:not(:first-child)'
-        )
+    def _parse_replies_from_edges(self, edges: List[dict]) -> List[ReplyItem]:
+        replies = []
+        for edge in edges:
+            node = edge.get("node", {})
+            if "__ref" in node:
+                ref_key = node["__ref"]
+                apollo_state = self._next_data.get('props', {}).get('pageProps', {}).get('apolloState', {})
+                node = apollo_state.get(ref_key, {})
 
-        for item in reply_items:
-            reply = ReplyItem()
-
-            # Author
-            author = item.css('a[data-testid="userLink"]::text').get()
-            reply['author'] = author.strip() if author else None
-
-            # Content
-            texts = item.css('a[data-testid="MessageLink"] span[class*="message-body"]::text').getall()
-            if not texts:
-                texts = item.css('a[data-testid="MessageLink"]::text').getall()
-
-            parts = [t.strip() for t in texts if t and t.strip()]
-            if parts:
-                combined = " ".join(parts)
-                reply['content'] = html.unescape(re.sub(r"\s+", " ", combined).strip())
-            else:
-                reply['content'] = None
-
-            # Thumbs up
-            kudos_text = item.xpath('string(.//*[@data-testid="kudosCount"])').get()
-            if kudos_text:
-                reply['thumbs_up_count'] = self._parse_kudos(kudos_text)
-            else:
-                reply['thumbs_up_count'] = 0
-
-            # Publish Date
-            date_title = item.css('[data-testid="messageTime"] span::attr(title)').get()
-            if not date_title:
-                date_title = item.css('[data-testid="messageTime"]::attr(title)').get()
-
-            if date_title:
-                reply['publish_date'] = self._parse_date(date_title)
-            else:
-                reply['publish_date'] = None
-
-            replies.append(reply)
-
+            if not node:
+                continue
+            
+            reply = self._parse_single_reply_node(node)
+            if reply:
+                replies.append(reply)
         return replies
+
+    def _parse_single_reply_node(self, node: dict) -> Optional[ReplyItem]:
+        reply = ReplyItem()
+        
+        # Author
+        author_node = node.get("author", {})
+        if "__ref" in author_node:
+                ref_key = author_node["__ref"]
+                apollo_state = self._next_data.get('props', {}).get('pageProps', {}).get('apolloState', {})
+                author_node = apollo_state.get(ref_key, {})
+
+        reply['author'] = author_node.get("login")
+        
+        # Content
+        body = node.get("body", "")
+        clean_body = re.sub(r'<[^>]+>', ' ', body)
+        clean_body = html.unescape(re.sub(r'\s+', ' ', clean_body).strip())
+        reply['content'] = clean_body
+        
+        # Publish Date
+        post_time = node.get("postTime")
+        if post_time:
+            try:
+                dt = datetime.fromisoformat(post_time)
+                reply['publish_date'] = dt.isoformat()
+            except Exception:
+                reply['publish_date'] = post_time
+        else:
+            reply['publish_date'] = None
+        
+        # Thumbs up
+        reply['thumbs_up_count'] = node.get("kudosSumWeight", 0)
+        
+        return reply
 
     def _parse_kudos(self, text: str) -> Optional[int]:
         text = text.strip()
