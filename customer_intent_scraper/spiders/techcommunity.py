@@ -18,9 +18,24 @@ from customer_intent_scraper.handlers import handle_graphql_response
 class TechcommunitySpider(scrapy.Spider):
     name = "techcommunity"
     allowed_domains = ["techcommunity.microsoft.com"]
-    start_urls = ["https://techcommunity.microsoft.com/category/microsoft365copilot/discussions/microsoft365copilot"]
-    def __init__(self, *args, **kwargs):
+    
+    # Default URL if none provided
+    default_url = "https://techcommunity.microsoft.com/category/microsoft365copilot/discussions/microsoft365copilot"
+
+    def __init__(self, urls=None, *args, **kwargs):
         super(TechcommunitySpider, self).__init__(*args, **kwargs)
+        
+        # Handle dynamic URLs input
+        if urls:
+            # If passed as a comma-separated string (command line)
+            if isinstance(urls, str):
+                self.start_urls = [u.strip() for u in urls.split(',')]
+            # If passed as a list (programmatic)
+            elif isinstance(urls, list):
+                self.start_urls = urls
+        else:
+            self.start_urls = [self.default_url]
+            
         self.seen_links = set()
         self.previous_links = set()
         self.api_headers = None

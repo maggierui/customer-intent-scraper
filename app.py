@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import json
+import sqlite3
 import os
 import plotly.express as px
 
@@ -11,33 +11,32 @@ st.title("Microsoft 365 Copilot Feedback Analysis")
 # Load data
 @st.cache_data
 def load_data():
-    # Prioritize analyzed data, fallback to raw data
-    data_files = ["discussions_analyzed.json", "discussions.json"]
-    
-    for file in data_files:
-        if os.path.exists(file):
-            try:
-                with open(file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                
-                df = pd.DataFrame(data)
-                
-                # Normalize analysis column if it exists (flatten the JSON)
-                if "analysis" in df.columns and not df["analysis"].isna().all():
-                    # Handle cases where analysis might be None for some rows
-                    analysis_data = df["analysis"].apply(lambda x: x if isinstance(x, dict) else {})
-                    analysis_df = pd.json_normalize(analysis_data)
-                    df = pd.concat([df.drop(columns=["analysis"]), analysis_df], axis=1)
-                
-                # Convert date
-                if "publish_date" in df.columns:
-                    df["publish_date"] = pd.to_datetime(df["publish_date"], errors='coerce')
-                    
-                return df
-            except Exception as e:
-                st.error(f"Error loading {file}: {e}")
-    
-    return pd.DataFrame()
+    db_path = "discussions.db"
+    if not os.path.exists(db_path):
+        return pd.DataFrame()
+        
+    try:
+        conn = sqlite3.connect(db_path)
+        query = "SELECT * FROM discussions"
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        # Convert date
+        if "publish_date" in df.columns:
+            df["publish_date"] = pd.to_datetime(df["publish_date"], errors='coerce')
+            
+        # Rename analysis columns to match expected format
+        column_mapping = {
+            "analysis_category": "category",
+            "analysis_product_area": "product_area",
+            "analysis_sentiment": "sentiment"
+        }
+        df = df.rename(columns=column_mapping)
+        
+        return df
+    except Exception as e:
+        st.error(f"Error loading database: {e}")
+        return pd.DataFrame()
 
 df = load_data()
 
@@ -65,6 +64,22 @@ else:
     
     filtered_df = df.copy()
 
+    # Platform Filter
+    if "platform" in filtered_df.columns:
+        platforms = ["All"] + sorted(filtered_df["platform"].dropna().unique().tolist())
+        selected_platform = st.sidebar.selectbox("Platform", platforms)
+        if selected_platform != "All":
+            filtered_df = filtered_df[filtered_df["platform"] == selected_platform]
+
+    # Sub-source Filter
+    if "sub_source" in filtered_df.columns:
+        # Filter sub-sources based on selected platform if applicable
+        available_sub_sources = filtered_df["sub_source"].dropna().unique().tolist()
+        sub_sources = ["All"] + sorted(available_sub_sources)
+        selected_sub_source = st.sidebar.selectbox("Sub-source (Board/Subreddit)", sub_sources)
+        if selected_sub_source != "All":
+            filtered_df = filtered_df[filtered_df["sub_source"] == selected_sub_source]
+
     # Search
     search_term = st.sidebar.text_input("Search (Title/Content)")
     if search_term:
@@ -88,25 +103,41 @@ else:
             filtered_df = filtered_df[filtered_df["product_area"] == selected_product]
 
     # Visualizations
-    if has_analysis and not filtered_df.empty:
+    if not filtered_df.empty:
         st.subheader("Insights")
-        c1, c2 = st.columns(2)
         
-        with c1:
-            if "product_area" in filtered_df.columns:
-                fig_prod = px.pie(filtered_df, names="product_area", title="Discussions by Product Area")
-                st.plotly_chart(fig_prod, use_container_width=True)
-        
-        with c2:
-            if "sentiment" in filtered_df.columns:
-                fig_sent = px.bar(filtered_df, x="sentiment", title="Sentiment Distribution", color="sentiment")
-                st.plotly_chart(fig_sent, use_container_width=True)
+        # Row 1: Platform & Source Distribution
+        r1c1, r1c2 = st.columns(2)
+        with r1c1:
+            if "platform" in filtered_df.columns:
+                fig_plat = px.pie(filtered_df, names="platform", title="Discussions by Platform", hole=0.4)
+                st.plotly_chart(fig_plat, use_container_width=True)
+        with r1c2:
+            if "sub_source" in filtered_df.columns:
+                # Top 10 sources
+                source_counts = filtered_df["sub_source"].value_counts().head(10).reset_index()
+                source_counts.columns = ["sub_source", "count"]
+                fig_source = px.bar(source_counts, x="sub_source", y="count", title="Top Data Sources", color="sub_source")
+                st.plotly_chart(fig_source, use_container_width=True)
+
+        # Row 2: Analysis Charts (if available)
+        if has_analysis:
+            r2c1, r2c2 = st.columns(2)
+            with r2c1:
+                if "product_area" in filtered_df.columns:
+                    fig_prod = px.pie(filtered_df, names="product_area", title="Discussions by Product Area")
+                    st.plotly_chart(fig_prod, use_container_width=True)
+            
+            with r2c2:
+                if "sentiment" in filtered_df.columns:
+                    fig_sent = px.bar(filtered_df, x="sentiment", title="Sentiment Distribution", color="sentiment")
+                    st.plotly_chart(fig_sent, use_container_width=True)
 
     # Display Data
     st.subheader("Discussions List")
     
     # Configure columns for display
-    display_cols = ["title", "author", "publish_date", "reply_count"]
+    display_cols = ["platform", "sub_source", "title", "author", "publish_date", "reply_count"]
     if has_analysis:
         display_cols.extend(["category", "product_area", "sentiment"])
     
@@ -117,6 +148,8 @@ else:
         column_config={
             "publish_date": st.column_config.DatetimeColumn("Date", format="D MMM YYYY"),
             "reply_count": st.column_config.NumberColumn("Replies"),
+            "platform": "Platform",
+            "sub_source": "Source"
         },
         use_container_width=True,
         hide_index=True

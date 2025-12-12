@@ -1,13 +1,60 @@
 import json
 import re
 import argparse
+import sqlite3
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from collections import Counter
 
-def load_data(filepath):
-    with open(filepath, 'r', encoding='utf-8') as f:
-        return json.load(f)
+def load_data_from_db(db_path):
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM discussions")
+    rows = cursor.fetchall()
+    data = [dict(row) for row in rows]
+    conn.close()
+    return data
+
+def update_db_with_analysis(db_path, data):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Add columns if they don't exist
+    try:
+        cursor.execute("ALTER TABLE discussions ADD COLUMN analysis_category TEXT")
+    except sqlite3.OperationalError:
+        pass # Column likely exists
+        
+    try:
+        cursor.execute("ALTER TABLE discussions ADD COLUMN analysis_product_area TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE discussions ADD COLUMN analysis_sentiment TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    # Update rows
+    for item in data:
+        if 'analysis' in item:
+            analysis = item['analysis']
+            cursor.execute("""
+                UPDATE discussions 
+                SET analysis_category = ?, 
+                    analysis_product_area = ?, 
+                    analysis_sentiment = ?
+                WHERE id = ?
+            """, (
+                analysis.get('category'),
+                analysis.get('product_area'),
+                analysis.get('sentiment'),
+                item.get('id')
+            ))
+            
+    conn.commit()
+    conn.close()
 
 def clean_text(text):
     if not text:
@@ -61,31 +108,47 @@ def analyze_sentiment_keyword(text):
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze discussion intents using local clustering.")
-    parser.add_argument("--input", default="discussions.json", help="Input JSON file path")
-    parser.add_argument("--output", default="discussions_analyzed.json", help="Output JSON file path")
+    parser.add_argument("--db", default="discussions.db", help="Input SQLite database path")
     parser.add_argument("--clusters", type=int, default=8, help="Number of clusters")
     args = parser.parse_args()
 
-    print(f"Loading data from {args.input}...")
-    data = load_data(args.input)
+    print(f"Loading data from {args.db}...")
+    try:
+        data = load_data_from_db(args.db)
+    except Exception as e:
+        print(f"Error loading database: {e}")
+        return
+
+    if not data:
+        print("No data found in database.")
+        return
     
     # Prepare text for clustering
     documents = []
     valid_indices = []
     
     for i, item in enumerate(data):
-        text = (item.get('title', '') + " " + item.get('content', ''))
+        text = (str(item.get('title', '')) + " " + str(item.get('content', '')))
         cleaned = clean_text(text)
         if len(cleaned) > 10:
             documents.append(cleaned)
             valid_indices.append(i)
             
+    if not documents:
+        print("Not enough data for clustering.")
+        return
+
     print(f"Vectorizing {len(documents)} documents...")
     vectorizer = TfidfVectorizer(stop_words='english', max_features=1000)
     X = vectorizer.fit_transform(documents)
     
-    print(f"Clustering into {args.clusters} topics...")
-    kmeans = KMeans(n_clusters=args.clusters, random_state=42)
+    # Adjust clusters if we have fewer documents than requested clusters
+    n_clusters = min(args.clusters, len(documents))
+    if n_clusters < args.clusters:
+        print(f"Reducing clusters to {n_clusters} due to small dataset.")
+    
+    print(f"Clustering into {n_clusters} topics...")
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
     kmeans.fit(X)
     
     # Get cluster keywords
@@ -93,7 +156,7 @@ def main():
     feature_names = vectorizer.get_feature_names_out()
     cluster_names = {}
     
-    for i in range(args.clusters):
+    for i in range(n_clusters):
         center = kmeans.cluster_centers_[i]
         top_ind = center.argsort()[:-6:-1]
         keywords = [feature_names[ind] for ind in top_ind]
@@ -106,22 +169,22 @@ def main():
         cluster_id = kmeans.labels_[idx]
         item = data[doc_idx]
         
-        full_text = (item.get('title', '') + " " + item.get('content', ''))
+        full_text = (str(item.get('title', '')) + " " + str(item.get('content', '')))
         
         analysis = {
             "category": cluster_names[cluster_id],
             "product_area": get_product_area(full_text),
             "sentiment": analyze_sentiment_keyword(full_text),
-            "pain_points": [], # Hard to extract specific points without LLM
-            "summary": item.get('title', '') # Use title as summary fallback
+            "pain_points": [], 
+            "summary": item.get('title', '') 
         }
         
         item['analysis'] = analysis
 
-    with open(args.output, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    print(f"Saving analysis back to {args.db}...")
+    update_db_with_analysis(args.db, data)
         
-    print(f"Analysis complete. Saved to {args.output}")
+    print(f"Analysis complete. Database updated.")
 
 if __name__ == "__main__":
     main()
