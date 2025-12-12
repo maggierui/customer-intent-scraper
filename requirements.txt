@@ -1,3 +1,8 @@
 scrapy
 scrapy-playwright
 openai
+streamlit
+pandas
+plotly
+scikit-learn
+python-dotenv
