@@ -3,10 +3,75 @@ import pandas as pd
 import sqlite3
 import os
 import plotly.express as px
+import subprocess
+import sys
 
 st.set_page_config(page_title="Copilot Feedback Analysis", layout="wide")
 
 st.title("Microsoft 365 Copilot Feedback Analysis")
+
+# --- Sidebar: Scraper Management ---
+st.sidebar.header("Scraper Management")
+with st.sidebar.expander("Run Scraper"):
+    default_urls = "https://techcommunity.microsoft.com/category/microsoft365copilot/discussions/microsoft365copilot, https://techcommunity.microsoft.com/category/microsoft365/discussions/admincenter"
+    urls_input = st.text_area("URLs to Scrape (comma separated)", value=default_urls, height=100)
+    
+    max_pages = st.number_input("Max Pages per Board (0 for unlimited)", min_value=0, value=10, step=1, help="Limit the number of pages to scrape per board. Useful for incremental updates.")
+
+    if st.button("Run Scraper Now"):
+        st.info("Scraper started. Streaming logs below...")
+        log_placeholder = st.empty()
+        full_logs = []
+        
+        try:
+            # Construct command
+            cmd = [
+                sys.executable, "-m", "scrapy", "crawl", "techcommunity", 
+                "-a", f"urls={urls_input}"
+            ]
+            
+            if max_pages > 0:
+                cmd.extend(["-a", f"max_pages={max_pages}"])
+            
+            # Run process with Popen for real-time output
+            process = subprocess.Popen(
+                cmd, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT, # Merge stderr into stdout
+                text=True,
+                bufsize=1, # Line buffered
+                encoding='utf-8',
+                errors='replace'
+            )
+            
+            # Read output line by line
+            while True:
+                line = process.stdout.readline()
+                if not line and process.poll() is not None:
+                    break
+                if line:
+                    full_logs.append(line)
+                    # Update logs every few lines or just show the last 20 lines to avoid UI lag
+                    # We join the last 20 lines for the preview, but keep full logs
+                    log_preview = "".join(full_logs[-20:])
+                    log_placeholder.code(log_preview, language="text")
+            
+            rc = process.poll()
+            
+            if rc == 0:
+                st.success("Scraper finished successfully!")
+                # Clear cache to ensure new data is loaded
+                st.cache_data.clear()
+                st.rerun()
+            else:
+                st.error(f"Scraper failed with return code {rc}.")
+            
+            # Show full logs in an expander at the end
+            with st.expander("View Full Scraper Logs"):
+                st.code("".join(full_logs))
+                
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
 
 # Load data
 @st.cache_data
@@ -33,6 +98,10 @@ def load_data():
         }
         df = df.rename(columns=column_mapping)
         
+        # Normalize sub_source to lowercase to merge duplicates
+        if "sub_source" in df.columns:
+            df["sub_source"] = df["sub_source"].str.lower()
+
         return df
     except Exception as e:
         st.error(f"Error loading database: {e}")
@@ -159,7 +228,11 @@ else:
 
     # Detail View
     st.subheader("Discussion Details")
-    selected_idx = st.selectbox("Select a discussion to view details:", filtered_df.index, format_func=lambda x: filtered_df.loc[x, "title"][:100])
+    selected_idx = st.selectbox(
+        "Select a discussion to view details:", 
+        filtered_df.index, 
+        format_func=lambda x: (str(filtered_df.loc[x, "title"]) if filtered_df.loc[x, "title"] else "No Title")[:100]
+    )
     
     if selected_idx is not None:
         item = filtered_df.loc[selected_idx]

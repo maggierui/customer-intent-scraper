@@ -22,7 +22,7 @@ class TechcommunitySpider(scrapy.Spider):
     # Default URL if none provided
     default_url = "https://techcommunity.microsoft.com/category/microsoft365copilot/discussions/microsoft365copilot"
 
-    def __init__(self, urls=None, *args, **kwargs):
+    def __init__(self, urls=None, max_pages=None, *args, **kwargs):
         super(TechcommunitySpider, self).__init__(*args, **kwargs)
         
         # Handle dynamic URLs input
@@ -36,26 +36,28 @@ class TechcommunitySpider(scrapy.Spider):
         else:
             self.start_urls = [self.default_url]
             
+        self.max_pages = int(max_pages) if max_pages else None
         self.seen_links = set()
-        self.previous_links = set()
+        # self.previous_links = set() # Disabled to allow re-crawling for updates
         self.api_headers = None
         self.api_cookies = None
         self.board_id = None
         
         # Load previously scraped links to avoid re-crawling
-        if os.path.exists("all_discussions.jsonl"):
-            try:
-                with open("all_discussions.jsonl", "r", encoding="utf-8") as f:
-                    for line in f:
-                        try:
-                            item = json.loads(line)
-                            if "discussion_url" in item:
-                                self.previous_links.add(item["discussion_url"])
-                        except:
-                            pass
-                self.logger.info(f"Loaded {len(self.previous_links)} previously scraped links.")
-            except Exception as e:
-                self.logger.warning(f"Could not load previous links: {e}")
+        # Commented out to ensure we pick up new replies on existing threads
+        # if os.path.exists("all_discussions.jsonl"):
+        #     try:
+        #         with open("all_discussions.jsonl", "r", encoding="utf-8") as f:
+        #             for line in f:
+        #                 try:
+        #                     item = json.loads(line)
+        #                     if "discussion_url" in item:
+        #                         self.previous_links.add(item["discussion_url"])
+        #                 except:
+        #                     pass
+        #         self.logger.info(f"Loaded {len(self.previous_links)} previously scraped links.")
+        #     except Exception as e:
+        #         self.logger.warning(f"Could not load previous links: {e}")
 
     def capture_api_request(self, request):
         # print(f"DEBUG: Request seen: {request.url}")
@@ -82,7 +84,7 @@ class TechcommunitySpider(scrapy.Spider):
                 callback=self.parse
             )
 
-    def build_payload(self, cursor=None):
+    def build_payload(self, board_id, cursor=None):
         return {
             "operationName": "MessageViewsForWidget",
             "variables": {
@@ -95,7 +97,7 @@ class TechcommunitySpider(scrapy.Spider):
                 "removeProcessingText": True, "useUnreadCount": False, 
                 "first": 50,
                 "constraints": {
-                    "boardId": {"eq": getattr(self, 'board_id', "board:Microsoft365Copilot")},
+                    "boardId": {"eq": board_id},
                     "depth": {"eq": 0},
                     "conversationStyle": {"eq": "FORUM"}
                 },
@@ -117,34 +119,35 @@ class TechcommunitySpider(scrapy.Spider):
         # if page:
         #     await page.close()
 
-        # Extract Board ID from the page content
-        if not self.board_id:
-            # Strategy 1: Look for MixedCase ID in CachedAsset keys (e.g. ForumBoardPage:board:CopilotforSmallandMediumBusiness)
-            # This is more reliable for case-sensitive APIs
-            mixed_case_matches = re.findall(r'ForumBoardPage:board:([a-zA-Z0-9]+)', response.text)
-            if mixed_case_matches:
-                self.board_id = mixed_case_matches[0]
-                self.logger.info(f"Extracted MixedCase Board ID: {self.board_id}")
+        board_id = None
 
-            # Strategy 2: Fallback to "boardId" property (usually lowercase, might fail API)
-            if not self.board_id:
-                # Try to find boardId in the page
-                matches = re.findall(r'"boardId"\s*:\s*"([^"]+)"', response.text)
-                if matches:
-                    # Filter out common non-board IDs if necessary
-                    for m in matches:
-                        if "blog" not in m.lower() and "idea" not in m.lower():
-                            self.board_id = m
-                            break
-                
-            if self.board_id:
-                if not self.board_id.startswith("board:"):
-                    self.board_id = f"board:{self.board_id}"
-                self.logger.info(f"Extracted Board ID: {self.board_id}")
+        # Extract Board ID from the page content
+        # Strategy 1: Look for MixedCase ID in CachedAsset keys (e.g. ForumBoardPage:board:CopilotforSmallandMediumBusiness)
+        # This is more reliable for case-sensitive APIs
+        mixed_case_matches = re.findall(r'ForumBoardPage:board:([a-zA-Z0-9]+)', response.text)
+        if mixed_case_matches:
+            board_id = mixed_case_matches[0]
+            self.logger.info(f"Extracted MixedCase Board ID: {board_id}")
+
+        # Strategy 2: Fallback to "boardId" property (usually lowercase, might fail API)
+        if not board_id:
+            # Try to find boardId in the page
+            matches = re.findall(r'"boardId"\s*:\s*"([^"]+)"', response.text)
+            if matches:
+                # Filter out common non-board IDs if necessary
+                for m in matches:
+                    if "blog" not in m.lower() and "idea" not in m.lower():
+                        board_id = m
+                        break
             
-            if not self.board_id:
-                self.logger.warning("Could not extract Board ID. Using default.")
-                self.board_id = "board:Microsoft365Copilot"
+        if board_id:
+            if not board_id.startswith("board:"):
+                board_id = f"board:{board_id}"
+            self.logger.info(f"Extracted Board ID: {board_id}")
+        
+        if not board_id:
+            self.logger.warning("Could not extract Board ID. Using default.")
+            board_id = "board:Microsoft365Copilot"
 
         if not self.api_headers:
             self.logger.error("Failed to capture API headers via event handler.")
@@ -167,19 +170,22 @@ class TechcommunitySpider(scrapy.Spider):
         # Filter headers
         self.api_headers = {k: v for k, v in self.api_headers.items() if k.lower() not in ['content-length', 'host']}
 
-        self.logger.info("Captured API headers and cookies. Switching to API mode.")
+        self.logger.info(f"Captured API headers and cookies. Switching to API mode for board {board_id}.")
         
         # Start API loop
         yield scrapy.Request(
             url="https://techcommunity.microsoft.com/t5/s/api/2.1/graphql?opname=MessageViewsForWidget",
             method="POST",
-            body=json.dumps(self.build_payload(cursor=None)),
+            body=json.dumps(self.build_payload(board_id, cursor=None)),
             headers=self.api_headers,
             cookies=self.api_cookies,
-            callback=self.parse_api_list
+            callback=self.parse_api_list,
+            meta={"board_id": board_id, "page_count": 1}
         )
 
     def parse_api_list(self, response):
+        board_id = response.meta.get("board_id")
+        page_count = response.meta.get("page_count", 1)
         try:
             data = json.loads(response.body)
             
@@ -190,7 +196,7 @@ class TechcommunitySpider(scrapy.Spider):
             messages = data.get("data", {}).get("messages", {})
             edges = messages.get("edges", [])
             
-            self.logger.info(f"API returned {len(edges)} items.")
+            self.logger.info(f"API returned {len(edges)} items for board {board_id} (Page {page_count}).")
             
             for edge in edges:
                 node = edge.get("node", {})
@@ -203,8 +209,9 @@ class TechcommunitySpider(scrapy.Spider):
                         url = f"https://techcommunity.microsoft.com/t5/microsoft-365-copilot/discussion/m-p/{msg_id}"
                 
                 if url:
-                    if url in self.previous_links:
-                        continue
+                    # We no longer skip previous links to ensure we catch new replies/updates
+                    # if url in self.previous_links:
+                    #     continue
                         
                     self.seen_links.add(url)
                     
@@ -227,19 +234,25 @@ class TechcommunitySpider(scrapy.Spider):
             # Pagination
             page_info = messages.get("pageInfo", {})
             if page_info.get("hasNextPage"):
+                # Check max pages
+                if self.max_pages and page_count >= self.max_pages:
+                    self.logger.info(f"Reached max pages ({self.max_pages}) for board {board_id}. Stopping.")
+                    return
+
                 end_cursor = page_info.get("endCursor")
                 if end_cursor:
-                    self.logger.info(f"Fetching next page with cursor: {end_cursor}")
+                    self.logger.info(f"Fetching next page ({page_count + 1}) with cursor: {end_cursor} for board {board_id}")
                     yield scrapy.Request(
                         url="https://techcommunity.microsoft.com/t5/s/api/2.1/graphql?opname=MessageViewsForWidget",
                         method="POST",
-                        body=json.dumps(self.build_payload(cursor=end_cursor)),
+                        body=json.dumps(self.build_payload(board_id, cursor=end_cursor)),
                         headers=self.api_headers,
                         cookies=self.api_cookies,
-                        callback=self.parse_api_list
+                        callback=self.parse_api_list,
+                        meta={"board_id": board_id, "page_count": page_count + 1}
                     )
             else:
-                self.logger.info("No more pages in API.")
+                self.logger.info(f"No more pages in API for board {board_id}.")
 
         except Exception as e:
             self.logger.error(f"Error parsing API response: {e}")

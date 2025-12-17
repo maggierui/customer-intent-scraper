@@ -98,7 +98,7 @@ class SQLitePipeline:
             
             if slug:
                 # Use the raw slug as the sub_source
-                sub_source = slug
+                sub_source = slug.lower()
 
         # Insert Discussion
         try:
