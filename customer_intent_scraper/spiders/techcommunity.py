@@ -124,7 +124,7 @@ class TechcommunitySpider(scrapy.Spider):
         # Extract Board ID from the page content
         # Strategy 1: Look for MixedCase ID in CachedAsset keys (e.g. ForumBoardPage:board:CopilotforSmallandMediumBusiness)
         # This is more reliable for case-sensitive APIs
-        mixed_case_matches = re.findall(r'ForumBoardPage:board:([a-zA-Z0-9]+)', response.text)
+        mixed_case_matches = re.findall(r'ForumBoardPage:board:([a-zA-Z0-9_]+)', response.text)
         if mixed_case_matches:
             board_id = mixed_case_matches[0]
             self.logger.info(f"Extracted MixedCase Board ID: {board_id}")

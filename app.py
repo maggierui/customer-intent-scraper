@@ -73,6 +73,26 @@ with st.sidebar.expander("Run Scraper"):
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
+with st.sidebar.expander("Run Analysis"):
+    st.write("Run local keyword-based analysis to categorize discussions and determine sentiment.")
+    if st.button("Run Analysis Now"):
+        st.info("Analysis started...")
+        try:
+            result = subprocess.run(
+                [sys.executable, "analyze_local.py"],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                st.success("Analysis finished successfully!")
+                st.cache_data.clear()
+                st.rerun()
+            else:
+                st.error("Analysis failed.")
+                st.code(result.stderr)
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
+
 # Load data
 @st.cache_data
 def load_data():
@@ -94,7 +114,8 @@ def load_data():
         column_mapping = {
             "analysis_category": "category",
             "analysis_product_area": "product_area",
-            "analysis_sentiment": "sentiment"
+            "analysis_sentiment": "sentiment",
+            "analysis_intent": "intent"
         }
         df = df.rename(columns=column_mapping)
         
@@ -155,6 +176,13 @@ else:
         if selected_product != "All":
             filtered_df = filtered_df[filtered_df["product_area"] == selected_product]
 
+    # Intent Filter (if analyzed)
+    if "intent" in filtered_df.columns:
+        intents = ["All"] + sorted(filtered_df["intent"].dropna().unique().tolist())
+        selected_intent = st.sidebar.selectbox("User Intent", intents)
+        if selected_intent != "All":
+            filtered_df = filtered_df[filtered_df["intent"] == selected_intent]
+
     # Metrics
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Discussions", len(filtered_df))
@@ -204,13 +232,18 @@ else:
                     fig_sent = px.bar(filtered_df, x="sentiment", title="Sentiment Distribution", color="sentiment")
                     st.plotly_chart(fig_sent, use_container_width=True)
 
+            # Row 3: Intent Chart
+            if "intent" in filtered_df.columns:
+                fig_intent = px.pie(filtered_df, names="intent", title="User Intent Distribution", hole=0.4)
+                st.plotly_chart(fig_intent, use_container_width=True)
+
     # Display Data
     st.subheader("Discussions List")
     
     # Configure columns for display
     display_cols = ["platform", "sub_source", "title", "author", "publish_date", "reply_count"]
     if has_analysis:
-        display_cols.extend(["category", "product_area", "sentiment"])
+        display_cols.extend(["category", "product_area", "sentiment", "intent"])
     
     display_cols = [c for c in display_cols if c in df.columns]
     
@@ -240,7 +273,7 @@ else:
         st.markdown(f"**Author:** {item.get('author', 'Unknown')} | **Date:** {item.get('publish_date', 'Unknown')}")
         
         if has_analysis:
-            st.info(f"**Category:** {item.get('category')} | **Product:** {item.get('product_area')} | **Sentiment:** {item.get('sentiment')}")
+            st.info(f"**Category:** {item.get('category')} | **Product:** {item.get('product_area')} | **Sentiment:** {item.get('sentiment')} | **Intent:** {item.get('intent')}")
             if "pain_points" in item and item["pain_points"]:
                 st.markdown("**Pain Points:**")
                 for pp in item["pain_points"]:

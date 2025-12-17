@@ -36,6 +36,11 @@ def update_db_with_analysis(db_path, data):
     except sqlite3.OperationalError:
         pass
 
+    try:
+        cursor.execute("ALTER TABLE discussions ADD COLUMN analysis_intent TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     # Update rows
     for item in data:
         if 'analysis' in item:
@@ -44,12 +49,14 @@ def update_db_with_analysis(db_path, data):
                 UPDATE discussions 
                 SET analysis_category = ?, 
                     analysis_product_area = ?, 
-                    analysis_sentiment = ?
+                    analysis_sentiment = ?,
+                    analysis_intent = ?
                 WHERE id = ?
             """, (
                 analysis.get('category'),
                 analysis.get('product_area'),
                 analysis.get('sentiment'),
+                analysis.get('intent'),
                 item.get('id')
             ))
             
@@ -105,6 +112,31 @@ def analyze_sentiment_keyword(text):
         return "Positive"
     else:
         return "Neutral"
+
+def analyze_intent_keyword(text):
+    text = text.lower()
+    
+    # Bug / Issue
+    bug_keywords = ["error", "fail", "crash", "bug", "not working", "broken", "issue", "problem", "stuck", "glitch", "exception", "slow", "latency"]
+    if any(w in text for w in bug_keywords):
+        return "Bug/Issue"
+        
+    # Feature Request
+    request_keywords = ["feature request", "please add", "wish", "missing", "would like", "should have", "suggestion", "idea", "feedback", "improve"]
+    if any(w in text for w in request_keywords):
+        return "Feature Request"
+        
+    # Pricing / Licensing
+    pricing_keywords = ["price", "cost", "license", "subscription", "billing", "expensive", "cheap", "pay", "e3", "e5"]
+    if any(w in text for w in pricing_keywords):
+        return "Pricing/Licensing"
+
+    # How-to / Question
+    question_keywords = ["how to", "how do i", "can i", "is it possible", "where is", "help", "guide", "tutorial", "?"]
+    if any(w in text for w in question_keywords):
+        return "How-to/Question"
+        
+    return "General Discussion"
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze discussion intents using local clustering.")
@@ -175,6 +207,7 @@ def main():
             "category": cluster_names[cluster_id],
             "product_area": get_product_area(full_text),
             "sentiment": analyze_sentiment_keyword(full_text),
+            "intent": analyze_intent_keyword(full_text),
             "pain_points": [], 
             "summary": item.get('title', '') 
         }
