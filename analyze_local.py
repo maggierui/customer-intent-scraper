@@ -89,7 +89,15 @@ def get_product_area(text):
         "compliance": "Compliance",
         "windows": "Windows",
         "power bi": "Power BI",
-        "power automate": "Power Automate"
+        "power automate": "Power Automate",
+        "sharepoint": "SharePoint",
+        "onedrive": "OneDrive",
+        "viva": "Viva",
+        "stream": "Stream",
+        "yammer": "Yammer",
+        "planner": "Planner",
+        "lists": "Lists",
+        "forms": "Forms"
     }
     
     for key, value in products.items():
