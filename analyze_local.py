@@ -41,6 +41,11 @@ def update_db_with_analysis(db_path, data):
     except sqlite3.OperationalError:
         pass
 
+    try:
+        cursor.execute("ALTER TABLE discussions ADD COLUMN analysis_author_role TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     # Update rows
     for item in data:
         if 'analysis' in item:
@@ -50,13 +55,15 @@ def update_db_with_analysis(db_path, data):
                 SET analysis_category = ?, 
                     analysis_product_area = ?, 
                     analysis_sentiment = ?,
-                    analysis_intent = ?
+                    analysis_intent = ?,
+                    analysis_author_role = ?
                 WHERE id = ?
             """, (
                 analysis.get('category'),
                 analysis.get('product_area'),
                 analysis.get('sentiment'),
                 analysis.get('intent'),
+                analysis.get('author_role'),
                 item.get('id')
             ))
             
@@ -146,6 +153,31 @@ def analyze_intent_keyword(text):
         
     return "General Discussion"
 
+def analyze_author_role(text):
+    text = text.lower()
+    
+    # Developer
+    dev_keywords = ["api", "sdk", "code", "script", "json", "xml", "endpoint", "token", "auth", "react", "node", "c#", "python", "javascript", "graph api", "rest", "webhook", "bot", "framework", "library", "spfx", "csom", "pnp"]
+    if any(w in text for w in dev_keywords):
+        return "Developer"
+
+    # IT Admin
+    admin_keywords = ["admin center", "tenant", "global admin", "permissions", "policy", "migration", "powershell", "active directory", "entra", "compliance", "security", "audit", "users", "groups", "license", "configure", "deploy", "provision"]
+    if any(w in text for w in admin_keywords):
+        return "IT Admin"
+
+    # IT Professional
+    itpro_keywords = ["server", "network", "infrastructure", "hybrid", "on-prem", "sharepoint server", "exchange server", "deployment", "configuration", "topology", "farm", "bandwidth", "latency"]
+    if any(w in text for w in itpro_keywords):
+        return "IT Professional"
+
+    # End User (Heuristic: "How do I", "Where is", simple complaints)
+    user_keywords = ["how do i", "where is", "button", "screen", "stopped working", "help", "tutorial", "guide", "confused", "can't find", "missing", "slow", "crash", "error message", "my app"]
+    if any(w in text for w in user_keywords):
+        return "End User"
+
+    return "End User" # Default to End User as they are the most common source of feedback
+
 def main():
     parser = argparse.ArgumentParser(description="Analyze discussion intents using local clustering.")
     parser.add_argument("--db", default="discussions.db", help="Input SQLite database path")
@@ -216,6 +248,7 @@ def main():
             "product_area": get_product_area(full_text),
             "sentiment": analyze_sentiment_keyword(full_text),
             "intent": analyze_intent_keyword(full_text),
+            "author_role": analyze_author_role(full_text),
             "pain_points": [], 
             "summary": item.get('title', '') 
         }

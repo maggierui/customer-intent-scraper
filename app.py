@@ -115,7 +115,8 @@ def load_data():
             "analysis_category": "category",
             "analysis_product_area": "product_area",
             "analysis_sentiment": "sentiment",
-            "analysis_intent": "intent"
+            "analysis_intent": "intent",
+            "analysis_author_role": "author_role"
         }
         df = df.rename(columns=column_mapping)
         
@@ -183,6 +184,13 @@ else:
         if selected_intent != "All":
             filtered_df = filtered_df[filtered_df["intent"] == selected_intent]
 
+    # Author Role Filter (if analyzed)
+    if "author_role" in filtered_df.columns:
+        roles = ["All"] + sorted(filtered_df["author_role"].dropna().unique().tolist())
+        selected_role = st.sidebar.selectbox("Author Role", roles)
+        if selected_role != "All":
+            filtered_df = filtered_df[filtered_df["author_role"] == selected_role]
+
     # Metrics
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Discussions", len(filtered_df))
@@ -232,10 +240,17 @@ else:
                     fig_sent = px.bar(filtered_df, x="sentiment", title="Sentiment Distribution", color="sentiment")
                     st.plotly_chart(fig_sent, use_container_width=True)
 
-            # Row 3: Intent Chart
-            if "intent" in filtered_df.columns:
-                fig_intent = px.pie(filtered_df, names="intent", title="User Intent Distribution", hole=0.4)
-                st.plotly_chart(fig_intent, use_container_width=True)
+            # Row 3: Intent & Author Role
+            r3c1, r3c2 = st.columns(2)
+            with r3c1:
+                if "intent" in filtered_df.columns:
+                    fig_intent = px.pie(filtered_df, names="intent", title="User Intent Distribution", hole=0.4)
+                    st.plotly_chart(fig_intent, use_container_width=True)
+            
+            with r3c2:
+                if "author_role" in filtered_df.columns:
+                    fig_role = px.pie(filtered_df, names="author_role", title="Author Role Distribution", hole=0.4)
+                    st.plotly_chart(fig_role, use_container_width=True)
 
     # Display Data
     st.subheader("Discussions List")
@@ -243,7 +258,7 @@ else:
     # Configure columns for display
     display_cols = ["platform", "sub_source", "title", "author", "publish_date", "reply_count"]
     if has_analysis:
-        display_cols.extend(["category", "product_area", "sentiment", "intent"])
+        display_cols.extend(["category", "product_area", "sentiment", "intent", "author_role"])
     
     display_cols = [c for c in display_cols if c in df.columns]
     
@@ -273,7 +288,7 @@ else:
         st.markdown(f"**Author:** {item.get('author', 'Unknown')} | **Date:** {item.get('publish_date', 'Unknown')}")
         
         if has_analysis:
-            st.info(f"**Category:** {item.get('category')} | **Product:** {item.get('product_area')} | **Sentiment:** {item.get('sentiment')} | **Intent:** {item.get('intent')}")
+            st.info(f"**Category:** {item.get('category')} | **Product:** {item.get('product_area')} | **Sentiment:** {item.get('sentiment')} | **Intent:** {item.get('intent')} | **Role:** {item.get('author_role')}")
             if "pain_points" in item and item["pain_points"]:
                 st.markdown("**Pain Points:**")
                 for pp in item["pain_points"]:
