@@ -262,7 +262,7 @@ else:
     
     display_cols = [c for c in display_cols if c in df.columns]
     
-    st.dataframe(
+    selection = st.dataframe(
         filtered_df[display_cols],
         column_config={
             "publish_date": st.column_config.DatetimeColumn("Date", format="D MMM YYYY"),
@@ -271,19 +271,18 @@ else:
             "sub_source": "Source"
         },
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row"
     )
 
     # Detail View
     st.subheader("Discussion Details")
-    selected_idx = st.selectbox(
-        "Select a discussion to view details:", 
-        filtered_df.index, 
-        format_func=lambda x: (str(filtered_df.loc[x, "title"]) if filtered_df.loc[x, "title"] else "No Title")[:100]
-    )
     
-    if selected_idx is not None:
-        item = filtered_df.loc[selected_idx]
+    if selection.selection.rows:
+        selected_row_index = selection.selection.rows[0]
+        item = filtered_df.iloc[selected_row_index]
+        
         st.markdown(f"### [{item['title']}]({item.get('discussion_url', '#')})")
         st.markdown(f"**Author:** {item.get('author', 'Unknown')} | **Date:** {item.get('publish_date', 'Unknown')}")
         
@@ -296,7 +295,7 @@ else:
             if "summary" in item:
                 st.markdown(f"**Summary:** {item['summary']}")
 
-        with st.expander("Full Content"):
+        with st.expander("Full Content", expanded=True):
             st.write(item.get("content", ""))
 
         if "replies" in item and isinstance(item["replies"], list):
@@ -305,4 +304,6 @@ else:
                 st.markdown("---")
                 st.markdown(f"**{reply.get('author', 'Unknown')}** ({reply.get('publish_date', '')})")
                 st.write(reply.get("content", ""))
+    else:
+        st.info("Select a discussion from the list above to view details.")
 
