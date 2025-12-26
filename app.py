@@ -262,6 +262,8 @@ else:
     
     display_cols = [c for c in display_cols if c in df.columns]
     
+    st.info("💡 **Tip:** Click the checkbox on the left of a row to view discussion details below.")
+
     selection = st.dataframe(
         filtered_df[display_cols],
         column_config={
@@ -305,5 +307,5 @@ else:
                 st.markdown(f"**{reply.get('author', 'Unknown')}** ({reply.get('publish_date', '')})")
                 st.write(reply.get("content", ""))
     else:
-        st.info("Select a discussion from the list above to view details.")
+        st.info("Select the checkbox next to a discussion to view details.")
 
