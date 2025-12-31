@@ -5,6 +5,8 @@ import os
 import plotly.express as px
 import subprocess
 import sys
+from collections import Counter
+import re
 
 st.set_page_config(page_title="Copilot Feedback Analysis", layout="wide")
 
@@ -116,7 +118,8 @@ def load_data():
             "analysis_product_area": "product_area",
             "analysis_sentiment": "sentiment",
             "analysis_intent": "intent",
-            "analysis_author_role": "author_role"
+            "analysis_author_role": "author_role",
+            "analysis_cluster_id": "cluster_id"
         }
         df = df.rename(columns=column_mapping)
         
@@ -134,178 +137,263 @@ df = load_data()
 if df.empty:
     st.warning("No data found. Please run the scraper first (or the analysis script).")
 else:
-    # Filters
-    st.sidebar.header("Filters")
-    
-    filtered_df = df.copy()
+    # Tabs for different views
+    tab1, tab2 = st.tabs(["General Dashboard", "Topic Explorer"])
 
-    # Platform Filter
-    if "platform" in filtered_df.columns:
-        platforms = ["All"] + sorted(filtered_df["platform"].dropna().unique().tolist())
-        selected_platform = st.sidebar.selectbox("Platform", platforms)
-        if selected_platform != "All":
-            filtered_df = filtered_df[filtered_df["platform"] == selected_platform]
-
-    # Sub-source Filter
-    if "sub_source" in filtered_df.columns:
-        # Filter sub-sources based on selected platform if applicable
-        available_sub_sources = filtered_df["sub_source"].dropna().unique().tolist()
-        sub_sources = ["All"] + sorted(available_sub_sources)
-        selected_sub_source = st.sidebar.selectbox("Sub-source (Board/Subreddit)", sub_sources)
-        if selected_sub_source != "All":
-            filtered_df = filtered_df[filtered_df["sub_source"] == selected_sub_source]
-
-    # Search
-    search_term = st.sidebar.text_input("Search (Title/Content)")
-    if search_term:
-        filtered_df = filtered_df[
-            filtered_df["title"].str.contains(search_term, case=False, na=False) | 
-            filtered_df["content"].str.contains(search_term, case=False, na=False)
-        ]
-
-    # Category Filter (if analyzed)
-    if "category" in filtered_df.columns:
-        categories = ["All"] + sorted(filtered_df["category"].dropna().unique().tolist())
-        selected_category = st.sidebar.selectbox("Category", categories)
-        if selected_category != "All":
-            filtered_df = filtered_df[filtered_df["category"] == selected_category]
-
-    # Product Area Filter (if analyzed)
-    if "product_area" in filtered_df.columns:
-        products = ["All"] + sorted(filtered_df["product_area"].dropna().unique().tolist())
-        selected_product = st.sidebar.selectbox("Product Area", products)
-        if selected_product != "All":
-            filtered_df = filtered_df[filtered_df["product_area"] == selected_product]
-
-    # Intent Filter (if analyzed)
-    if "intent" in filtered_df.columns:
-        intents = ["All"] + sorted(filtered_df["intent"].dropna().unique().tolist())
-        selected_intent = st.sidebar.selectbox("User Intent", intents)
-        if selected_intent != "All":
-            filtered_df = filtered_df[filtered_df["intent"] == selected_intent]
-
-    # Author Role Filter (if analyzed)
-    if "author_role" in filtered_df.columns:
-        roles = ["All"] + sorted(filtered_df["author_role"].dropna().unique().tolist())
-        selected_role = st.sidebar.selectbox("Author Role", roles)
-        if selected_role != "All":
-            filtered_df = filtered_df[filtered_df["author_role"] == selected_role]
-
-    # Metrics
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Discussions", len(filtered_df))
-    col2.metric("Unique Authors", filtered_df["author"].nunique() if "author" in filtered_df.columns else 0)
-    
-    if "publish_date" in filtered_df.columns:
-        latest_date = filtered_df["publish_date"].max()
-        if pd.notnull(latest_date):
-            col3.metric("Latest Post", latest_date.strftime("%Y-%m-%d"))
-
-    # Analysis Metrics (if available)
-    has_analysis = "sentiment" in filtered_df.columns
-    if has_analysis:
-        neg_sentiment = len(filtered_df[filtered_df["sentiment"] == "Negative"])
-        total_count = len(filtered_df)
-        percentage = (neg_sentiment / total_count) if total_count > 0 else 0
-        col4.metric("Negative Sentiment", f"{neg_sentiment} ({percentage:.1%})")
-
-    # Visualizations
-    if not filtered_df.empty:
-        st.subheader("Insights")
+    with tab1:
+        # Filters
+        st.sidebar.header("Filters")
         
-        # Row 1: Platform & Source Distribution
-        r1c1, r1c2 = st.columns(2)
-        with r1c1:
-            if "platform" in filtered_df.columns:
-                fig_plat = px.pie(filtered_df, names="platform", title="Discussions by Platform", hole=0.4)
-                st.plotly_chart(fig_plat, use_container_width=True)
-        with r1c2:
-            if "sub_source" in filtered_df.columns:
-                # Top 10 sources
-                source_counts = filtered_df["sub_source"].value_counts().head(10).reset_index()
-                source_counts.columns = ["sub_source", "count"]
-                fig_source = px.bar(source_counts, x="sub_source", y="count", title="Top Data Sources", color="sub_source")
-                st.plotly_chart(fig_source, use_container_width=True)
+        filtered_df = df.copy()
 
-        # Row 2: Analysis Charts (if available)
+        # Platform Filter
+        if "platform" in filtered_df.columns:
+            platforms = ["All"] + sorted(filtered_df["platform"].dropna().unique().tolist())
+            selected_platform = st.sidebar.selectbox("Platform", platforms)
+            if selected_platform != "All":
+                filtered_df = filtered_df[filtered_df["platform"] == selected_platform]
+
+        # Sub-source Filter
+        if "sub_source" in filtered_df.columns:
+            # Filter sub-sources based on selected platform if applicable
+            available_sub_sources = filtered_df["sub_source"].dropna().unique().tolist()
+            sub_sources = ["All"] + sorted(available_sub_sources)
+            selected_sub_source = st.sidebar.selectbox("Sub-source (Board/Subreddit)", sub_sources)
+            if selected_sub_source != "All":
+                filtered_df = filtered_df[filtered_df["sub_source"] == selected_sub_source]
+
+        # Search
+        search_term = st.sidebar.text_input("Search (Title/Content)")
+        if search_term:
+            filtered_df = filtered_df[
+                filtered_df["title"].str.contains(search_term, case=False, na=False) | 
+                filtered_df["content"].str.contains(search_term, case=False, na=False)
+            ]
+
+        # Category Filter (if analyzed)
+        if "category" in filtered_df.columns:
+            categories = ["All"] + sorted(filtered_df["category"].dropna().unique().tolist())
+            selected_category = st.sidebar.selectbox("Category", categories)
+            if selected_category != "All":
+                filtered_df = filtered_df[filtered_df["category"] == selected_category]
+
+        # Product Area Filter (if analyzed)
+        if "product_area" in filtered_df.columns:
+            products = ["All"] + sorted(filtered_df["product_area"].dropna().unique().tolist())
+            selected_product = st.sidebar.selectbox("Product Area", products)
+            if selected_product != "All":
+                filtered_df = filtered_df[filtered_df["product_area"] == selected_product]
+
+        # Intent Filter (if analyzed)
+        if "intent" in filtered_df.columns:
+            intents = ["All"] + sorted(filtered_df["intent"].dropna().unique().tolist())
+            selected_intent = st.sidebar.selectbox("User Intent", intents)
+            if selected_intent != "All":
+                filtered_df = filtered_df[filtered_df["intent"] == selected_intent]
+
+        # Author Role Filter (if analyzed)
+        if "author_role" in filtered_df.columns:
+            roles = ["All"] + sorted(filtered_df["author_role"].dropna().unique().tolist())
+            selected_role = st.sidebar.selectbox("Author Role", roles)
+            if selected_role != "All":
+                filtered_df = filtered_df[filtered_df["author_role"] == selected_role]
+
+        # Metrics
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total Discussions", len(filtered_df))
+        col2.metric("Unique Authors", filtered_df["author"].nunique() if "author" in filtered_df.columns else 0)
+        
+        if "publish_date" in filtered_df.columns:
+            latest_date = filtered_df["publish_date"].max()
+            if pd.notnull(latest_date):
+                col3.metric("Latest Post", latest_date.strftime("%Y-%m-%d"))
+
+        # Analysis Metrics (if available)
+        has_analysis = "sentiment" in filtered_df.columns
         if has_analysis:
-            r2c1, r2c2 = st.columns(2)
-            with r2c1:
-                if "product_area" in filtered_df.columns:
-                    fig_prod = px.pie(filtered_df, names="product_area", title="Discussions by Product Area")
-                    st.plotly_chart(fig_prod, use_container_width=True)
+            neg_sentiment = len(filtered_df[filtered_df["sentiment"] == "Negative"])
+            total_count = len(filtered_df)
+            percentage = (neg_sentiment / total_count) if total_count > 0 else 0
+            col4.metric("Negative Sentiment", f"{neg_sentiment} ({percentage:.1%})")
+
+        # Visualizations
+        if not filtered_df.empty:
+            st.subheader("Insights")
             
-            with r2c2:
-                if "sentiment" in filtered_df.columns:
-                    fig_sent = px.bar(filtered_df, x="sentiment", title="Sentiment Distribution", color="sentiment")
-                    st.plotly_chart(fig_sent, use_container_width=True)
+            # Row 1: Platform & Source Distribution
+            r1c1, r1c2 = st.columns(2)
+            with r1c1:
+                if "platform" in filtered_df.columns:
+                    fig_plat = px.pie(filtered_df, names="platform", title="Discussions by Platform", hole=0.4)
+                    st.plotly_chart(fig_plat, use_container_width=True)
+            with r1c2:
+                if "sub_source" in filtered_df.columns:
+                    # Top 10 sources
+                    source_counts = filtered_df["sub_source"].value_counts().head(10).reset_index()
+                    source_counts.columns = ["sub_source", "count"]
+                    fig_source = px.bar(source_counts, x="sub_source", y="count", title="Top Data Sources", color="sub_source")
+                    st.plotly_chart(fig_source, use_container_width=True)
 
-            # Row 3: Intent & Author Role
-            r3c1, r3c2 = st.columns(2)
-            with r3c1:
-                if "intent" in filtered_df.columns:
-                    fig_intent = px.pie(filtered_df, names="intent", title="User Intent Distribution", hole=0.4)
-                    st.plotly_chart(fig_intent, use_container_width=True)
-            
-            with r3c2:
-                if "author_role" in filtered_df.columns:
-                    fig_role = px.pie(filtered_df, names="author_role", title="Author Role Distribution", hole=0.4)
-                    st.plotly_chart(fig_role, use_container_width=True)
+            # Row 2: Analysis Charts (if available)
+            if has_analysis:
+                r2c1, r2c2 = st.columns(2)
+                with r2c1:
+                    if "product_area" in filtered_df.columns:
+                        fig_prod = px.pie(filtered_df, names="product_area", title="Discussions by Product Area")
+                        st.plotly_chart(fig_prod, use_container_width=True)
+                
+                with r2c2:
+                    if "sentiment" in filtered_df.columns:
+                        fig_sent = px.bar(filtered_df, x="sentiment", title="Sentiment Distribution", color="sentiment")
+                        st.plotly_chart(fig_sent, use_container_width=True)
 
-    # Display Data
-    st.subheader("Discussions List")
-    
-    # Configure columns for display
-    display_cols = ["platform", "sub_source", "title", "author", "publish_date", "reply_count"]
-    if has_analysis:
-        display_cols.extend(["category", "product_area", "sentiment", "intent", "author_role"])
-    
-    display_cols = [c for c in display_cols if c in df.columns]
-    
-    st.info("💡 **Tip:** Click the checkbox on the left of a row to view discussion details below.")
+                # Row 3: Intent & Author Role
+                r3c1, r3c2 = st.columns(2)
+                with r3c1:
+                    if "intent" in filtered_df.columns:
+                        fig_intent = px.pie(filtered_df, names="intent", title="User Intent Distribution", hole=0.4)
+                        st.plotly_chart(fig_intent, use_container_width=True)
+                
+                with r3c2:
+                    if "author_role" in filtered_df.columns:
+                        fig_role = px.pie(filtered_df, names="author_role", title="Author Role Distribution", hole=0.4)
+                        st.plotly_chart(fig_role, use_container_width=True)
 
-    selection = st.dataframe(
-        filtered_df[display_cols],
-        column_config={
-            "publish_date": st.column_config.DatetimeColumn("Date", format="D MMM YYYY"),
-            "reply_count": st.column_config.NumberColumn("Replies"),
-            "platform": "Platform",
-            "sub_source": "Source"
-        },
-        use_container_width=True,
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-row"
-    )
-
-    # Detail View
-    st.subheader("Discussion Details")
-    
-    if selection.selection.rows:
-        selected_row_index = selection.selection.rows[0]
-        item = filtered_df.iloc[selected_row_index]
+        # Display Data
+        st.subheader("Discussions List")
         
-        st.markdown(f"### [{item['title']}]({item.get('discussion_url', '#')})")
-        st.markdown(f"**Author:** {item.get('author', 'Unknown')} | **Date:** {item.get('publish_date', 'Unknown')}")
-        
+        # Configure columns for display
+        display_cols = ["platform", "sub_source", "title", "author", "publish_date", "reply_count", "url"]
         if has_analysis:
-            st.info(f"**Category:** {item.get('category')} | **Product:** {item.get('product_area')} | **Sentiment:** {item.get('sentiment')} | **Intent:** {item.get('intent')} | **Role:** {item.get('author_role')}")
-            if "pain_points" in item and item["pain_points"]:
-                st.markdown("**Pain Points:**")
-                for pp in item["pain_points"]:
-                    st.markdown(f"- {pp}")
-            if "summary" in item:
-                st.markdown(f"**Summary:** {item['summary']}")
+            display_cols.extend(["category", "product_area", "sentiment", "intent", "author_role"])
+        
+        display_cols = [c for c in display_cols if c in df.columns]
+        
+        st.info("💡 **Tip:** Click the checkbox on the left of a row to view discussion details below.")
 
-        with st.expander("Full Content", expanded=True):
-            st.write(item.get("content", ""))
+        selection = st.dataframe(
+            filtered_df[display_cols],
+            column_config={
+                "publish_date": st.column_config.DatetimeColumn("Date", format="D MMM YYYY"),
+                "reply_count": st.column_config.NumberColumn("Replies"),
+                "platform": "Platform",
+                "sub_source": "Source",
+                "url": st.column_config.LinkColumn("Link", display_text="Open")
+            },
+            use_container_width=True,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="single-row"
+        )
 
-        if "replies" in item and isinstance(item["replies"], list):
-            st.markdown(f"#### Replies ({len(item['replies'])})")
-            for reply in item["replies"]:
-                st.markdown("---")
-                st.markdown(f"**{reply.get('author', 'Unknown')}** ({reply.get('publish_date', '')})")
-                st.write(reply.get("content", ""))
-    else:
-        st.info("Select the checkbox next to a discussion to view details.")
+        # Detail View
+        st.subheader("Discussion Details")
+        
+        if selection.selection.rows:
+            selected_row_index = selection.selection.rows[0]
+            item = filtered_df.iloc[selected_row_index]
+            
+            st.markdown(f"### [{item['title']}]({item.get('url', '#')})")
+            st.markdown(f"**Author:** {item.get('author', 'Unknown')} | **Date:** {item.get('publish_date', 'Unknown')}")
+            
+            if has_analysis:
+                st.info(f"**Category:** {item.get('category')} | **Product:** {item.get('product_area')} | **Sentiment:** {item.get('sentiment')} | **Intent:** {item.get('intent')} | **Role:** {item.get('author_role')}")
+                if "pain_points" in item and item["pain_points"]:
+                    st.markdown("**Pain Points:**")
+                    for pp in item["pain_points"]:
+                        st.markdown(f"- {pp}")
+                if "summary" in item:
+                    st.markdown(f"**Summary:** {item['summary']}")
+
+            with st.expander("Full Content", expanded=True):
+                st.write(item.get("content", ""))
+
+            if "replies" in item and isinstance(item["replies"], list):
+                st.markdown(f"#### Replies ({len(item['replies'])})")
+                for reply in item["replies"]:
+                    st.markdown("---")
+                    st.markdown(f"**{reply.get('author', 'Unknown')}** ({reply.get('publish_date', '')})")
+                    st.write(reply.get("content", ""))
+        else:
+            st.info("Select the checkbox next to a discussion to view details.")
+
+    with tab2:
+        st.header("Topic Explorer")
+        st.write("Deep dive into specific topics and see how different roles (Admins, Developers, End Users) are discussing them.")
+
+        if "category" not in df.columns or "author_role" not in df.columns:
+            st.warning("Please run the analysis first to generate topics and roles.")
+        else:
+            # 1. Select Topic
+            topics = sorted(df["category"].dropna().unique().tolist())
+            selected_topic = st.selectbox("Select a Topic to Explore", topics)
+            
+            topic_df = df[df["category"] == selected_topic]
+            
+            # 2. Role Distribution
+            st.subheader(f"Who is talking about this?")
+            role_counts = topic_df["author_role"].value_counts().reset_index()
+            role_counts.columns = ["Role", "Count"]
+            fig_role_dist = px.bar(role_counts, x="Role", y="Count", color="Role", title="Role Distribution for this Topic")
+            st.plotly_chart(fig_role_dist, use_container_width=True)
+
+            # 3. Perspective Matrix
+            st.subheader("Perspective Matrix")
+            
+            def get_top_keywords(texts, top_n=5):
+                words = []
+                stopwords = set(['the', 'to', 'and', 'of', 'a', 'in', 'is', 'it', 'for', 'on', 'that', 'this', 'with', 'i', 'you', 'are', 'not', 'have', 'be', 'can', 'how', 'do', 'what', 'my', 'but', 'as', 'if', 'or', 'an', 'at', 'from', 'so', 'me', 'we', 'microsoft', 'copilot', '365', 'use', 'using', 'get', 'when', 'will', 'has', 'all', 'any', 'there', 'about', 'would', 'like', 'just', 'need', 'know', 'want', 'does', 'which', 'one', 'only', 'also', 'more', 'some', 'out', 'up', 'who', 'why', 'where', 'time', 'new', 'now', 'user', 'users', 'work', 'working', 'issue', 'problem', 'error', 'help', 'question', 'questions', 'thanks', 'please', 'hi', 'hello', 'hey', 'good', 'great', 'best', 'better', 'much', 'many', 'very', 'really', 'too', 'even', 'still', 'back', 'way', 'see', 'make', 'find', 'look', 'think', 'go', 'going', 'been', 'being', 'should', 'could', 'did', 'done', 'doing', 'say', 'said', 'says', 'tell', 'told', 'tells', 'ask', 'asked', 'asks', 'answer', 'answered', 'answers', 'reply', 'replied', 'replies', 'post', 'posted', 'posts', 'thread', 'threads', 'topic', 'topics', 'discussion', 'discussions', 'forum', 'forums', 'community', 'communities', 'site', 'sites', 'page', 'pages', 'web', 'website', 'websites', 'link', 'links', 'url', 'urls', 'http', 'https', 'www', 'com', 'org', 'net', 'edu', 'gov', 'mil', 'int', 'arpa', 'biz', 'info', 'name', 'pro', 'aero', 'coop', 'museum', 'mobi', 'travel', 'tel', 'cat', 'jobs', 'asia', 'xxx', 'yacht', 'tel', 'post', 'mail', 'email', 'gmail', 'yahoo', 'hotmail', 'outlook', 'live', 'msn', 'aol', 'icloud', 'me', 'mac', 'iphone', 'ipad', 'android', 'windows', 'linux', 'unix', 'macos', 'ios', 'chrome', 'firefox', 'safari', 'edge', 'opera', 'brave', 'vivaldi', 'tor', 'duckduckgo', 'google', 'bing', 'yahoo', 'baidu', 'yandex', 'ask', 'aol', 'wolframalpha', 'startpage', 'qwant', 'searchencrypt', 'searx', 'swisscows', 'gibiru', 'disconnect', 'yippy', 'lukol', 'metager', 'gigablast', 'oscobo', 'infinity', 'search', 'engine', 'engines', 'web', 'browser', 'browsers', 'internet', 'online', 'offline', 'connect', 'connection', 'connected', 'connecting', 'disconnect', 'disconnected', 'disconnecting', 'network', 'networks', 'networking', 'wifi', 'wi-fi', 'wireless', 'wired', 'ethernet', 'lan', 'wan', 'man', 'pan', 'san', 'can', 'dan', 'fan', 'gan', 'han', 'ian', 'jan', 'kan', 'lan', 'man', 'nan', 'oan', 'pan', 'qan', 'ran', 'san', 'tan', 'uan', 'van', 'wan', 'xan', 'yan', 'zan'])
+                for text in texts:
+                    # Simple tokenization
+                    tokens = re.findall(r'\b[a-zA-Z]{3,}\b', str(text).lower())
+                    words.extend([t for t in tokens if t not in stopwords])
+                
+                return Counter(words).most_common(top_n)
+
+            col_admin, col_dev, col_user = st.columns(3)
+
+            # IT Admin Column
+            with col_admin:
+                st.markdown("### 🛡️ IT Admin")
+                admin_df = topic_df[topic_df["author_role"] == "IT Admin"]
+                if not admin_df.empty:
+                    keywords = get_top_keywords(admin_df["title"] + " " + admin_df["content"])
+                    st.markdown("**Top Keywords:**")
+                    st.write(", ".join([f"*{k[0]}*" for k in keywords]))
+                    
+                    st.markdown("**Sample Discussions:**")
+                    for _, row in admin_df.head(5).iterrows():
+                        st.markdown(f"- [{row['title']}]({row.get('url', '#')})")
+                else:
+                    st.write("No discussions found.")
+
+            # Developer Column
+            with col_dev:
+                st.markdown("### 💻 Developer")
+                dev_df = topic_df[topic_df["author_role"] == "Developer"]
+                if not dev_df.empty:
+                    keywords = get_top_keywords(dev_df["title"] + " " + dev_df["content"])
+                    st.markdown("**Top Keywords:**")
+                    st.write(", ".join([f"*{k[0]}*" for k in keywords]))
+                    
+                    st.markdown("**Sample Discussions:**")
+                    for _, row in dev_df.head(5).iterrows():
+                        st.markdown(f"- [{row['title']}]({row.get('url', '#')})")
+                else:
+                    st.write("No discussions found.")
+
+            # End User Column
+            with col_user:
+                st.markdown("### 👤 End User")
+                user_df = topic_df[topic_df["author_role"] == "End User"]
+                if not user_df.empty:
+                    keywords = get_top_keywords(user_df["title"] + " " + user_df["content"])
+                    st.markdown("**Top Keywords:**")
+                    st.write(", ".join([f"*{k[0]}*" for k in keywords]))
+                    
+                    st.markdown("**Sample Discussions:**")
+                    for _, row in user_df.head(5).iterrows():
+                        st.markdown(f"- [{row['title']}]({row.get('url', '#')})")
+                else:
+                    st.write("No discussions found.")
 

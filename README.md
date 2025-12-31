@@ -27,7 +27,8 @@ Here is a simple guide to the most important files in this project:
 ### 1. The Dashboard (`app.py`)
 *   **Purpose**: This is the "face" of the application. It's what you see in your web browser.
 *   **What it does**:
-    *   Displays charts and graphs (Sentiment, User Intent, Author Roles).
+    *   **General Dashboard**: Displays charts and graphs (Sentiment, User Intent, Author Roles) and a searchable list of discussions.
+    *   **Topic Explorer**: A deep-dive view that clusters discussions by topic and breaks them down by user role (IT Admin, Developer, End User), showing unique keywords for each perspective.
     *   Allows you to filter data (e.g., show only "Negative" feedback or "Feature Requests").
     *   Lets you trigger the **Scraper** and the **Analyzer** directly from the sidebar.
 
@@ -36,8 +37,9 @@ Here is a simple guide to the most important files in this project:
 *   **What it does**:
     *   **Sentiment Analysis**: Decides if a post is Positive, Negative, or Neutral.
     *   **Intent Detection**: Guesses if the user is reporting a bug, asking a question, or requesting a feature.
-    *   **Role Identification**: Tries to figure out if the author is an IT Admin, Developer, or End User based on the words they use.
+    *   **Role Identification**: Classifies the author as an **IT Admin**, **Developer**, or **End User** based on their vocabulary.
     *   **Product Detection**: Identifies which product (e.g., Excel, Teams) is being discussed.
+    *   **Clustering**: Groups similar discussions into topics using machine learning (K-Means).
 
 ### 3. The Collector (`customer_intent_scraper/`)
 *   **Purpose**: This folder contains the "spiders" that crawl the web.
@@ -70,6 +72,7 @@ Imagine this process in three steps: **Collect**, **Process**, and **View**.
 1.  The dashboard refreshes.
 2.  You can now see updated charts showing how many people are reporting bugs vs. asking questions.
 3.  You can click on individual rows in the list to read the full discussion details.
+4.  **New**: You can click the "Open" link in the table or the title in the details view to visit the actual online discussion.
 
 ---
 

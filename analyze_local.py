@@ -46,6 +46,11 @@ def update_db_with_analysis(db_path, data):
     except sqlite3.OperationalError:
         pass
 
+    try:
+        cursor.execute("ALTER TABLE discussions ADD COLUMN analysis_cluster_id INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
     # Update rows
     for item in data:
         if 'analysis' in item:
@@ -56,7 +61,8 @@ def update_db_with_analysis(db_path, data):
                     analysis_product_area = ?, 
                     analysis_sentiment = ?,
                     analysis_intent = ?,
-                    analysis_author_role = ?
+                    analysis_author_role = ?,
+                    analysis_cluster_id = ?
                 WHERE id = ?
             """, (
                 analysis.get('category'),
@@ -64,6 +70,7 @@ def update_db_with_analysis(db_path, data):
                 analysis.get('sentiment'),
                 analysis.get('intent'),
                 analysis.get('author_role'),
+                analysis.get('cluster_id'),
                 item.get('id')
             ))
             
@@ -161,15 +168,17 @@ def analyze_author_role(text):
     if any(w in text for w in dev_keywords):
         return "Developer"
 
-    # IT Admin
-    admin_keywords = ["admin center", "tenant", "global admin", "permissions", "policy", "migration", "powershell", "active directory", "entra", "compliance", "security", "audit", "users", "groups", "license", "configure", "deploy", "provision"]
+    # IT Admin (Merged with IT Professional)
+    admin_keywords = [
+        "admin center", "tenant", "global admin", "permissions", "policy", "migration", "powershell", 
+        "active directory", "entra", "compliance", "security", "audit", "users", "groups", "license", 
+        "configure", "deploy", "provision",
+        # IT Pro keywords merged in:
+        "server", "network", "infrastructure", "hybrid", "on-prem", "sharepoint server", 
+        "exchange server", "deployment", "configuration", "topology", "farm", "bandwidth", "latency"
+    ]
     if any(w in text for w in admin_keywords):
         return "IT Admin"
-
-    # IT Professional
-    itpro_keywords = ["server", "network", "infrastructure", "hybrid", "on-prem", "sharepoint server", "exchange server", "deployment", "configuration", "topology", "farm", "bandwidth", "latency"]
-    if any(w in text for w in itpro_keywords):
-        return "IT Professional"
 
     # End User (Heuristic: "How do I", "Where is", simple complaints)
     user_keywords = ["how do i", "where is", "button", "screen", "stopped working", "help", "tutorial", "guide", "confused", "can't find", "missing", "slow", "crash", "error message", "my app"]
@@ -237,14 +246,25 @@ def main():
 
     # Assign results back to data
     print("Tagging data...")
-    for idx, doc_idx in enumerate(valid_indices):
-        cluster_id = kmeans.labels_[idx]
-        item = data[doc_idx]
-        
+    
+    # Create a map of doc_idx -> cluster_id for quick lookup
+    doc_to_cluster = {doc_idx: kmeans.labels_[idx] for idx, doc_idx in enumerate(valid_indices)}
+
+    for i, item in enumerate(data):
         full_text = (str(item.get('title', '')) + " " + str(item.get('content', '')))
         
+        # Determine cluster info
+        if i in doc_to_cluster:
+            cluster_id = doc_to_cluster[i]
+            category = cluster_names[cluster_id]
+            cid = int(cluster_id)
+        else:
+            category = "General / Short Content"
+            cid = -1
+
         analysis = {
-            "category": cluster_names[cluster_id],
+            "category": category,
+            "cluster_id": cid,
             "product_area": get_product_area(full_text),
             "sentiment": analyze_sentiment_keyword(full_text),
             "intent": analyze_intent_keyword(full_text),
