@@ -6,4 +6,4 @@ pandas
 plotly
 scikit-learn
 python-dotenv
-scrapy-playwright
+scrapy-poet
