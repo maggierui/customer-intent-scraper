@@ -1,4 +1,4 @@
-scrapy
+scrapy<2.11
 scrapy-playwright
 openai
 streamlit

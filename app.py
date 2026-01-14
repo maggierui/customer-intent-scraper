@@ -13,6 +13,17 @@ load_dotenv()
 
 st.set_page_config(page_title="Copilot Feedback Analysis", layout="wide")
 
+# Ensure Playwright browsers are installed
+try:
+    if not os.path.exists("playwright_installed.flag"):
+        with st.spinner("Installing Playwright browsers... This runs only once per reboot."):
+            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+            # Create a flag file to avoid re-installing
+            with open("playwright_installed.flag", "w") as f:
+                f.write("installed")
+except Exception as e:
+    st.error(f"Failed to install Playwright: {e}")
+
 st.title("Microsoft 365 Copilot Feedback Analysis")
 
 # --- Sidebar: Scraper Management ---
