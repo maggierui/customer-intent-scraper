@@ -160,9 +160,15 @@ with st.sidebar.expander("Run Analysis"):
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
 
+if st.sidebar.button("Refresh Data"):
+    st.cache_data.clear()
+    st.rerun()
+
 # Load data
 @st.cache_data
-def load_data():
+def load_data(ttl_hash=None):
+    # ttl_hash is a dummy argument to force cache invalidation when the file changes
+    del ttl_hash 
     db_path = "discussions.db"
     if not os.path.exists(db_path):
         return pd.DataFrame()
@@ -197,7 +203,10 @@ def load_data():
         st.error(f"Error loading database: {e}")
         return pd.DataFrame()
 
-df = load_data()
+# Get the last modification time of the db to force cache invalidation if it changes
+db_path = "discussions.db"
+last_updated = os.path.getmtime(db_path) if os.path.exists(db_path) else 0
+df = load_data(ttl_hash=last_updated)
 
 if df.empty:
     st.warning("No data found. Please run the scraper first (or the analysis script).")
