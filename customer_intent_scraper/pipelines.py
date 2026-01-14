@@ -69,36 +69,40 @@ class SQLitePipeline:
 
     def process_item(self, item, spider):
         # Determine platform and sub_source
-        platform = "Tech Community" 
-        sub_source = "microsoft365copilot" # Default
+        if spider.name == "reddit":
+            platform = "Reddit"
+            sub_source = item.get("sub_source", "reddit")
+        else:
+            platform = "Tech Community" 
+            sub_source = "microsoft365copilot" # Default
         
-        # Extract sub_source from URL if possible
-        if "techcommunity.microsoft.com" in item.get("discussion_url", ""):
-            parts = item["discussion_url"].split("/")
-            # Check for /t5/slug/ or /category/slug/
-            slug = None
-            if "t5" in parts:
-                try:
-                    idx = parts.index("t5")
-                    slug = parts[idx+1]
-                except:
-                    pass
-            elif "category" in parts:
-                try:
-                    idx = parts.index("category")
-                    slug = parts[idx+1]
-                except:
-                    pass
-            elif "discussions" in parts:
-                try:
-                    idx = parts.index("discussions")
-                    slug = parts[idx+1]
-                except:
-                    pass
-            
-            if slug:
-                # Use the raw slug as the sub_source
-                sub_source = slug.lower()
+            # Extract sub_source from URL if possible
+            if "techcommunity.microsoft.com" in item.get("discussion_url", ""):
+                parts = item["discussion_url"].split("/")
+                # Check for /t5/slug/ or /category/slug/
+                slug = None
+                if "t5" in parts:
+                    try:
+                        idx = parts.index("t5")
+                        slug = parts[idx+1]
+                    except:
+                        pass
+                elif "category" in parts:
+                    try:
+                        idx = parts.index("category")
+                        slug = parts[idx+1]
+                    except:
+                        pass
+                elif "discussions" in parts:
+                    try:
+                        idx = parts.index("discussions")
+                        slug = parts[idx+1]
+                    except:
+                        pass
+                
+                if slug:
+                    # Use the raw slug as the sub_source
+                    sub_source = slug.lower()
 
         # Insert Discussion
         try:

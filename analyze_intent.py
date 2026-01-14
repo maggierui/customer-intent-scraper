@@ -3,6 +3,7 @@ import os
 import sys
 import argparse
 import time
+import sqlite3
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -19,9 +20,61 @@ try:
 except ImportError:
     def tqdm(iterable, **kwargs): return iterable
 
-def load_data(filepath):
-    with open(filepath, 'r', encoding='utf-8') as f:
-        return json.load(f)
+def load_data_from_db(db_path, limit=0):
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Select items that haven't been analyzed by AI yet (optional optimization)
+    # For now, just select all or limit
+    query = "SELECT * FROM discussions"
+    if limit > 0:
+        query += f" LIMIT {limit}"
+        
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    data = [dict(row) for row in rows]
+    conn.close()
+    return data
+
+def update_db_with_analysis(db_path, item_id, analysis):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Add columns if they don't exist
+    columns = [
+        "analysis_category", "analysis_product_area", "analysis_sentiment", 
+        "analysis_intent", "analysis_summary", "analysis_pain_points"
+    ]
+    
+    for col in columns:
+        try:
+            cursor.execute(f"ALTER TABLE discussions ADD COLUMN {col} TEXT")
+        except sqlite3.OperationalError:
+            pass # Column likely exists
+
+    # Update row
+    cursor.execute("""
+        UPDATE discussions 
+        SET analysis_category = ?, 
+            analysis_product_area = ?, 
+            analysis_sentiment = ?,
+            analysis_intent = ?,
+            analysis_summary = ?,
+            analysis_pain_points = ?
+        WHERE id = ?
+    """, (
+        analysis.get('category'),
+        analysis.get('product_area'),
+        analysis.get('sentiment'),
+        analysis.get('category'), # Mapping category to intent for consistency with local script
+        analysis.get('summary'),
+        json.dumps(analysis.get('pain_points', [])),
+        item_id
+    ))
+            
+    conn.commit()
+    conn.close()
 
 def analyze_intent(client, discussion, deployment_name):
     """
@@ -42,31 +95,31 @@ def analyze_intent(client, discussion, deployment_name):
     Content: {content}
     
     Provide the output in JSON format with the following keys:
-    - "category": (e.g., "Bug/Error", "Feature Request", "How-to/Question", "Pricing/Licensing", "General Feedback")
+    - "category": (e.g., "Bug/Issue", "Feature Request", "How-to/Question", "Pricing/Licensing", "General Discussion")
     - "product_area": (e.g., "Excel", "Outlook", "Teams", "PowerPoint", "Admin Center", "Copilot Studio", "General")
     - "pain_points": A list of specific struggles or issues mentioned (max 3).
-    - "sentiment": (e.g., "Positive", "Neutral", "Negative", "Frustrated")
+    - "sentiment": (e.g., "Positive", "Neutral", "Negative")
     - "summary": A concise one-sentence summary of the core issue.
     """
-    
+
     try:
         response = client.chat.completions.create(
-            model=deployment_name, 
+            model=deployment_name,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
+            temperature=0,
             response_format={ "type": "json_object" }
         )
         return json.loads(response.choices[0].message.content)
     except Exception as e:
-        # print(f"Error analyzing item '{title[:30]}...': {e}")
+        print(f"Error analyzing item '{title[:30]}...': {e}")
         return None
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze discussion intents using Azure OpenAI.")
-    parser.add_argument("--input", default="discussions.json", help="Input JSON file path")
-    parser.add_argument("--output", default="discussions_analyzed.json", help="Output JSON file path")
+    parser.add_argument("--db", default="discussions.db", help="Input SQLite database path")
     parser.add_argument("--limit", type=int, default=10, help="Number of items to analyze (default: 10). Set to 0 for all.")
     args = parser.parse_args()
 
@@ -81,19 +134,14 @@ def main():
         print("Please set: AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT_NAME")
         return
 
-    if not os.path.exists(args.input):
-        print(f"Error: {args.input} not found.")
+    if not os.path.exists(args.db):
+        print(f"Error: {args.db} not found.")
         return
 
-    data = load_data(args.input)
-    total_items = len(data)
+    print(f"Loading data from {args.db}...")
+    data = load_data_from_db(args.db, args.limit)
     
-    # Apply limit
-    if args.limit > 0:
-        data = data[:args.limit]
-        print(f"Processing {len(data)} items (limited from {total_items})...")
-    else:
-        print(f"Processing all {total_items} items...")
+    print(f"Processing {len(data)} items...")
 
     client = AzureOpenAI(
         api_key=api_key,
@@ -101,21 +149,16 @@ def main():
         azure_endpoint=endpoint
     )
     
-    results = []
     print("Starting analysis...")
     
     for item in tqdm(data, desc="Analyzing"):
         analysis = analyze_intent(client, item, deployment_name)
         if analysis:
-            item['analysis'] = analysis
-            results.append(item)
-        # Small sleep to avoid aggressive rate limiting if needed, though usually handled by client retries
+            update_db_with_analysis(args.db, item['id'], analysis)
+        # Small sleep to avoid aggressive rate limiting if needed
         # time.sleep(0.1) 
 
-    with open(args.output, 'w', encoding='utf-8') as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
-    
-    print(f"\nAnalysis complete. {len(results)} items saved to {args.output}")
+    print(f"\nAnalysis complete.")
 
 if __name__ == "__main__":
     main()
